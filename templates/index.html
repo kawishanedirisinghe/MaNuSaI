@@ -186,6 +186,12 @@
                 <div class="logo-text">OpenManus AI</div>
             </div>
             <div class="header-actions">
+                <button class="btn btn-secondary" onclick="newChat()">
+                    <i class="fas fa-plus"></i> New Chat
+                </button>
+                <button class="btn btn-secondary" onclick="copyChatLink()">
+                    <i class="fas fa-link"></i> Copy Link
+                </button>
                 <button class="btn btn-secondary" onclick="clearChat()">
                     <i class="fas fa-trash"></i> Clear Chat
                 </button>
@@ -333,6 +339,7 @@
         let isProcessing = false;
         let currentTaskId = null;
         let uploadedFiles = [];
+        let currentHistoryId = null;
         
         // DOM Elements
         const messageInput = document.getElementById('messageInput');
@@ -350,11 +357,28 @@
         const patternSound = document.getElementById('patternSound');
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             //loadAPIStatus();
-            loadChatHistory();
             setupEventListeners();
-            
+
+            // Deep link handling (?id=...)
+            const params = new URLSearchParams(window.location.search);
+            const deepId = params.get('id');
+            if (deepId) {
+                currentHistoryId = deepId;
+                try {
+                    const history = await fetchChatHistory();
+                    const match = history.find(h => h.id === deepId);
+                    if (match) {
+                        loadHistoryItem(match);
+                    } else {
+                        showNotification('⚠️ Conversation not found. Starting new chat.', 'warning');
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+
             // Auto-refresh API status
            // setInterval(loadAPIStatus, 90000);
 
@@ -366,6 +390,9 @@
                     playPatternSound(); // Optional: sound effect
                 });
         }
+
+            // Load history list (UI)
+            loadChatHistory();
         });
 
         function playPatternSound() {
@@ -545,8 +572,7 @@
                 }
 
                 apiStatus.innerHTML = statusHTML;
-                 alert(apiStatus.innerText);
-                //showNotification(apiStatus.innerHTML, 'info');
+                
 
 
             } catch (error) {
@@ -564,16 +590,20 @@
         }
 
         // Chat History
+        async function fetchChatHistory() {
+            const response = await fetch('/api/chat-history');
+            if (!response.ok) {
+                throw new Error(`Chat history load failed with status ${response.status}`);
+            }
+            const data = await response.json();
+            return data.history || [];
+        }
+
         async function loadChatHistory() {
             try {
-                const response = await fetch('/api/chat-history');
-                if (!response.ok) {
-                    throw new Error(`Chat history load failed with status ${response.status}`);
-                }
-                const data = await response.json();
-                
-                if (data.history && data.history.length > 0) {
-                    displayChatHistory(data.history.slice(-10)); // Show last 10 conversations
+                const history = await fetchChatHistory();
+                if (history && history.length > 0) {
+                    displayChatHistory(history.slice(-10)); // Show last 10 conversations
                 } else {
                     historyList.innerHTML = '<div class="text-center text-gray">No chat history yet</div>';
                 }
@@ -591,12 +621,15 @@
                 historyDiv.className = 'history-item';
                 historyDiv.onclick = () => loadHistoryItem(chat);
                 
-                const preview = chat.user_message.substring(0, 50) + (chat.user_message.length > 50 ? '...' : '');
-                const time = new Date(chat.timestamp).toLocaleString();
+                const preview = (chat.messages && chat.messages.length > 0)
+                    ? (chat.messages.find(m => m.role === 'user')?.content || '')
+                    : (chat.user_message || '');
+                const short = (preview || '').substring(0, 50) + ((preview || '').length > 50 ? '...' : '');
+                const time = new Date(chat.last_updated || chat.timestamp || Date.now()).toLocaleString();
                 
                 historyDiv.innerHTML = `
-                    <div class="history-preview">${preview}</div>
-                    <div class="history-time">${time}</div>
+                    <div class="history-preview">${short}</div>
+                    <div class="history-time">#${chat.id || ''} · ${time}</div>
                 `;
                 
                 historyList.appendChild(historyDiv);
@@ -607,18 +640,34 @@
             // Clear current messages
             messagesArea.innerHTML = '';
             
+            // Set current history id so next sends stick to this thread
+            currentHistoryId = chat.id;
+
             // Add historical messages
-            addMessage('user', chat.user_message, chat.uploaded_files || []);
-            addMessage('agent', chat.agent_response);
+            if (Array.isArray(chat.messages)) {
+                chat.messages.forEach(m => {
+                    if (m.role === 'user') {
+                        addMessage('user', m.content, m.uploaded_files || []);
+                    } else {
+                        addMessage('agent', m.content);
+                    }
+                });
+            } else {
+                // Backward compatibility for older schema
+                addMessage('user', chat.user_message, chat.uploaded_files || []);
+                addMessage('agent', chat.agent_response);
+            }
             
-            // Select appropriate agent
-            selectAgent(chat.agent_type || 'manus');
+            // Select appropriate agent if provided
+            if (chat.agent_type) selectAgent(chat.agent_type);
             
             // Update uploaded files display if needed
             if (chat.uploaded_files && chat.uploaded_files.length > 0) {
                 uploadedFiles = [...chat.uploaded_files];
                 displayUploadedFiles();
             }
+
+            showNotification('↩️ Continued this conversation. Your next message will use its context.', 'info');
         }
 
         // Message Functions
@@ -684,7 +733,10 @@
             if (!message || isProcessing) return;
 
             // Generate task ID
-            currentTaskId = 'task_';
+            currentTaskId = 'task_' + Math.random().toString(36).slice(2);
+            if (!currentHistoryId) {
+                currentHistoryId = currentTaskId; // start a new thread if none selected
+            }
             
             isProcessing = true;
             updateUIForProcessing(true);
@@ -709,7 +761,8 @@
                     body: JSON.stringify({ 
                         message, 
                         task_id: currentTaskId,
-                        uploaded_files: uploadedFiles 
+                        uploaded_files: uploadedFiles,
+                        history_id: currentHistoryId
                     }),
                 });
 
@@ -986,6 +1039,29 @@
 
         function toggleHistory() {
             chatHistory.style.display = chatHistory.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function newChat() {
+            // Reset thread and UI
+            currentHistoryId = null;
+            clearChat();
+            showNotification('🆕 Started a new chat', 'info');
+            // Remove id param from URL
+            const url = new URL(window.location.href);
+            url.searchParams.delete('id');
+            window.history.replaceState({}, '', url);
+        }
+
+        function copyChatLink() {
+            if (!currentHistoryId) {
+                showNotification('ℹ️ Send a message to generate a chat link', 'info');
+                return;
+            }
+            const url = new URL(window.location.href);
+            url.searchParams.set('id', currentHistoryId);
+            navigator.clipboard.writeText(url.toString())
+                .then(() => showNotification('🔗 Chat link copied', 'success'))
+                .catch(() => showNotification('❌ Failed to copy link', 'error'));
         }
 
         // Add CSS animations
