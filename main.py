@@ -652,6 +652,9 @@ def sandbox_exec():
         # Run in event loop
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        # Ensure sandbox is created before executing
+        if not getattr(SANDBOX_CLIENT, 'sandbox', None):
+            loop.run_until_complete(SANDBOX_CLIENT.create(config=app_config.sandbox))
         output = loop.run_until_complete(SANDBOX_CLIENT.run_command(command, timeout=timeout))
         loop.close()
         return jsonify({"output": output})
