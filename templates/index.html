@@ -345,6 +345,7 @@
         let isProcessing = false;
         let currentTaskId = null;
         let uploadedFiles = [];
+        let awaitingHumanInput = false;
         
         // DOM Elements
         const messageInput = document.getElementById('messageInput');
@@ -730,8 +731,10 @@ let selectedMood = 'default';
             const message = messageInput.value.trim();
             if (!message || isProcessing) return;
 
-            // Generate task ID
-            currentTaskId = chatIdFromUrl || ('task_' + Math.random().toString(36).slice(2));
+            // Generate or reuse task/chat ID
+            if (!currentTaskId) {
+                currentTaskId = chatIdFromUrl || ('task_' + Math.random().toString(36).slice(2));
+            }
             
             isProcessing = true;
             updateUIForProcessing(true);
@@ -759,6 +762,8 @@ let selectedMood = 'default';
                         let agentMessage = '';
 
                         ws.onopen = () => {
+                            // Reset awaitingHumanInput once we are replying
+                            awaitingHumanInput = false;
                             ws.send(JSON.stringify({
                                 message,
                                 task_id: currentTaskId,
@@ -785,6 +790,7 @@ let selectedMood = 'default';
                                 return;
                             }
                             if (line.includes("Activating tool: 'ask_human'")) {
+                                awaitingHumanInput = true;
                                 isProcessing = false;
                                 updateUIForProcessing(false);
                                 showNotification("✋ AI is waiting for your input", "info");
@@ -884,6 +890,8 @@ let selectedMood = 'default';
 
             try {
                 const endpoint = selectedAgent === 'manus' ? '/api/chat-stream' : '/api/flow-stream';
+                // Reset awaitingHumanInput once we are replying
+                awaitingHumanInput = false;
                 const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
@@ -932,6 +940,7 @@ let selectedMood = 'default';
                             continue;
                         }
                         if (line.includes("Activating tool: 'ask_human'")) {
+                            awaitingHumanInput = true;
                             isProcessing = false;
                             updateUIForProcessing(false);
                             showNotification("✋ AI is waiting for your input", "info");
@@ -1143,6 +1152,9 @@ let selectedMood = 'default';
             `;
             uploadedFiles = [];
             displayUploadedFiles();
+            // Reset chat/task id so next message starts a fresh chat
+            currentTaskId = null;
+            awaitingHumanInput = false;
         }
 
         async function execTerminal() {
