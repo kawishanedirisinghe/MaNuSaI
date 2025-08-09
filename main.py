@@ -19,6 +19,8 @@ import json
 import uuid
 from werkzeug.utils import secure_filename
 import shutil
+from app.schema import Message  # ADDED: for seeding agent memory from history
+from app.sandbox.client import SANDBOX_CLIENT  # ADDED: sandbox terminal support
 
 app = Flask(__name__)
 app.config['WORKSPACE'] = 'workspace'
@@ -466,6 +468,17 @@ def load_chat_history():
         logger.error(f"Error loading chat history: {e}")
         return []
 
+# ADDED: helper to get single chat by id
+def get_chat_by_id(chat_id: str) -> Optional[dict]:
+    try:
+        history = load_chat_history()
+        for chat in history:
+            if chat.get('id') == chat_id:
+                return chat
+        return None
+    except Exception:
+        return None
+
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
     """Handle file upload"""
@@ -538,6 +551,14 @@ def get_chat_history():
         logger.error(f"Error getting chat history: {e}")
         return jsonify({'error': str(e)}), 500
 
+# ADDED: get single chat by id
+@app.route('/api/chat/<chat_id>')
+def get_chat_by_id_route(chat_id):
+    chat = get_chat_by_id(chat_id)
+    if not chat:
+        return jsonify({'error': 'Chat not found'}), 404
+    return jsonify({'chat': chat})
+
 @app.route('/api/stop-task', methods=['POST'])
 def stop_task():
     """Stop running AI task"""
@@ -557,7 +578,26 @@ def stop_task():
         logger.error(f"Error stopping task: {e}")
         return jsonify({'error': str(e)}), 500
 
-async def main(prompt, task_id=None):
+# ADDED: running task status endpoint
+@app.route('/api/running-tasks')
+def running_tasks_status():
+    try:
+        now = time.time()
+        tasks = []
+        for tid, info in running_tasks.items():
+            tasks.append({
+                'task_id': tid,
+                'chat_id': info.get('chat_id', tid),
+                'start_time': info.get('start_time'),
+                'elapsed_seconds': int(now - info.get('start_time', now)),
+                'stop_flag': info.get('stop_flag', False)
+            })
+        return jsonify({'running': tasks})
+    except Exception as e:
+        logger.error(f"Error getting running tasks: {e}")
+        return jsonify({'error': str(e)}), 500
+
+async def main(prompt, task_id=None, mood: Optional[str] = None, history_messages: Optional[List[Dict]] = None):
     """Enhanced main function with advanced API key rotation and stop functionality"""
     max_retries = len(api_key_manager.api_keys)
     retry_count = 0
@@ -610,6 +650,25 @@ async def main(prompt, task_id=None):
                 running_tasks=running_tasks
             )
 
+            # ADDED: seed prior conversation and mood instruction
+            if history_messages:
+                try:
+                    # keep last 6 messages at most
+                    trimmed = history_messages[-6:]
+                    for m in trimmed:
+                        role = m.get('role', 'user')
+                        content = m.get('content', '')
+                        if content:
+                            agent.update_memory(role, content)
+                except Exception as e:
+                    logger.error(f"Error seeding history messages: {e}")
+
+            if mood:
+                try:
+                    agent.update_memory('system', f"Please respond in a {mood} tone. Keep answers aligned to this tone unless user requests otherwise.")
+                except Exception as e:
+                    logger.error(f"Error applying mood instruction: {e}")
+
             # Execute the task
             await agent.run(prompt)
 
@@ -647,12 +706,12 @@ async def main(prompt, task_id=None):
                 await agent.cleanup()
 
 # Thread wrapper
-def run_async_task(message, task_id=None):
+def run_async_task(message, task_id=None, mood: Optional[str] = None, history_messages: Optional[List[Dict]] = None):
     """Run async task in new thread"""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        loop.run_until_complete(main(message, task_id))
+        loop.run_until_complete(main(message, task_id, mood, history_messages))
     except Exception as e:
         logger.error(f"Task execution failed: {e}")
     finally:
@@ -669,7 +728,9 @@ def chat_stream():
     prompt_data = request.get_json()
     message = prompt_data["message"]
     task_id = prompt_data.get("task_id", str(uuid.uuid4()))
+    chat_id = prompt_data.get("chat_id") or task_id  # prefer explicit chat_id
     uploaded_files = prompt_data.get("uploaded_files", [])
+    mood = prompt_data.get("mood")  # ADDED
 
     logger.info(f"Received request: {message}")
 
@@ -690,15 +751,30 @@ def chat_stream():
     full_message = message + file_context
 
     # Initialize task tracking
+    # ADDED: seed history_messages from prior chat if provided chat_id exists
+    prior_chat = get_chat_by_id(chat_id)
+    seeded_messages: List[Dict] = []
+    if prior_chat:
+        try:
+            if prior_chat.get('user_message'):
+                seeded_messages.append({'role': 'user', 'content': prior_chat['user_message']})
+            if prior_chat.get('agent_response'):
+                seeded_messages.append({'role': 'assistant', 'content': prior_chat['agent_response']})
+        except Exception:
+            pass
+
     running_tasks[task_id] = {
         'stop_flag': False,
-        'start_time': time.time()
+        'start_time': time.time(),
+        'chat_id': chat_id,
+        'mood': mood,
+        'history_messages': seeded_messages
     }
 
     # Start async task thread
     task_thread = threading.Thread(
         target=run_async_task,
-        args=(full_message, task_id)
+        args=(full_message, task_id, mood, seeded_messages)
     )
     task_thread.start()
 
@@ -734,12 +810,13 @@ def chat_stream():
 
         # Save chat history
         chat_data = {
-            'id': task_id,
+            'id': chat_id,  # use chat_id for continuity
             'timestamp': datetime.now().isoformat(),
             'user_message': message,
             'agent_response': full_response,
             'agent_type': 'manus',
-            'uploaded_files': uploaded_files
+            'uploaded_files': uploaded_files,
+            'mood': mood
         }
         save_chat_history(chat_data)
 
@@ -981,6 +1058,35 @@ def flow_stream():
         yield """0303030"""
 
     return Response(generate(), mimetype="text/plain")
+
+# ADDED: Sandbox terminal endpoint
+@app.route('/api/sandbox/run', methods=['POST'])
+def sandbox_run():
+    try:
+        data = request.get_json() or {}
+        command = data.get('command', '').strip()
+        timeout = int(data.get('timeout', app_config.sandbox.timeout if app_config.sandbox else 300))
+        if not command:
+            return jsonify({'error': 'No command provided'}), 400
+
+        # Run in a dedicated async loop
+        def _run_in_loop(cmd: str, timeout_s: int) -> str:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                async def _ensure_and_run():
+                    if getattr(SANDBOX_CLIENT, 'sandbox', None) is None:
+                        await SANDBOX_CLIENT.create(app_config.sandbox, {})
+                    return await SANDBOX_CLIENT.run_command(cmd, timeout=timeout_s)
+                return loop.run_until_complete(_ensure_and_run())
+            finally:
+                loop.close()
+
+        output = _run_in_loop(command, timeout)
+        return jsonify({'output': output})
+    except Exception as e:
+        logger.error(f"Sandbox run error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 # WSGI entry point for deployment
 application = app
