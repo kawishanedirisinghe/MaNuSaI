@@ -19,6 +19,18 @@ import json
 import uuid
 from werkzeug.utils import secure_filename
 import shutil
+from io import BytesIO
+from typing import Any
+
+try:
+    import boto3  # Optional for cloud history storage
+except Exception:
+    boto3 = None
+
+try:
+    from PyPDF2 import PdfReader  # For PDF text extraction
+except Exception:
+    PdfReader = None
 
 app = Flask(__name__)
 app.config['WORKSPACE'] = 'workspace'
@@ -353,6 +365,11 @@ def load_chat_by_id(chat_id: str) -> Optional[dict]:
 def index():
     return render_template('index.html')
 
+@app.route('/chat/<chat_id>')
+def chat_with_id(chat_id: str):
+    """Serve the main UI; the frontend will fetch the chat via API using chat_id."""
+    return render_template('index.html')
+
 @app.route('/file/<filename>')
 def file(filename):
     file_path = os.path.join(app.config['WORKSPACE'], filename)
@@ -442,6 +459,11 @@ def allowed_file(filename):
 def save_chat_history(chat_data):
     """Save chat history to file"""
     try:
+        # Optional S3 storage if configured
+        if os.environ.get('AWS_S3_BUCKET') and boto3 is not None:
+            _save_chat_history_s3(chat_data)
+            return
+
         if os.path.exists(app.config['CHAT_HISTORY_FILE']):
             with open(app.config['CHAT_HISTORY_FILE'], 'r', encoding='utf-8') as f:
                 history = json.load(f)
@@ -464,12 +486,58 @@ def save_chat_history(chat_data):
 def load_chat_history():
     """Load chat history from file"""
     try:
+        # Optional S3 storage if configured
+        if os.environ.get('AWS_S3_BUCKET') and boto3 is not None:
+            return _load_chat_history_s3()
+
         if os.path.exists(app.config['CHAT_HISTORY_FILE']):
             with open(app.config['CHAT_HISTORY_FILE'], 'r', encoding='utf-8') as f:
                 return json.load(f)
         return []
     except Exception as e:
         logger.error(f"Error loading chat history: {e}")
+        return []
+
+def _s3_client():
+    if boto3 is None:
+        raise RuntimeError("boto3 is not installed")
+    return boto3.client('s3')
+
+def _save_chat_history_s3(chat_data: Dict[str, Any]):
+    bucket = os.environ['AWS_S3_BUCKET']
+    key = os.environ.get('AWS_S3_HISTORY_KEY', 'chat_history.json')
+    s3 = _s3_client()
+    try:
+        try:
+            obj = s3.get_object(Bucket=bucket, Key=key)
+            history_bytes = obj['Body'].read()
+            history = json.loads(history_bytes.decode('utf-8'))
+        except s3.exceptions.NoSuchKey:
+            history = []
+        except Exception:
+            history = []
+
+        history = [h for h in history if h.get('id') != chat_data.get('id')]
+        history.append(chat_data)
+        if len(history) > 100:
+            history = history[-100:]
+
+        s3.put_object(Bucket=bucket, Key=key, Body=json.dumps(history, ensure_ascii=False, indent=2).encode('utf-8'), ContentType='application/json')
+    except Exception as e:
+        logger.error(f"S3 save chat history failed: {e}")
+
+def _load_chat_history_s3() -> List[Dict[str, Any]]:
+    bucket = os.environ['AWS_S3_BUCKET']
+    key = os.environ.get('AWS_S3_HISTORY_KEY', 'chat_history.json')
+    s3 = _s3_client()
+    try:
+        obj = s3.get_object(Bucket=bucket, Key=key)
+        history_bytes = obj['Body'].read()
+        return json.loads(history_bytes.decode('utf-8'))
+    except s3.exceptions.NoSuchKey:
+        return []
+    except Exception as e:
+        logger.error(f"S3 load chat history failed: {e}")
         return []
 
 @app.route('/api/chat/<chat_id>')
@@ -705,6 +773,7 @@ def chat_stream():
     task_id = prompt_data.get("task_id", str(uuid.uuid4()))
     uploaded_files = prompt_data.get("uploaded_files", [])
     mood = prompt_data.get("mood", "default")
+    chat_id = prompt_data.get("chat_id") or task_id
 
     logger.info(f"Received request: {message}")
 
@@ -716,18 +785,29 @@ def chat_stream():
             try:
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], file_info['filename'])
                 if os.path.exists(filepath):
-                    with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-                        content = f.read()[:2000]  # Limit content size
-                    file_context += f"\n--- {file_info['original_name']} ---\n{content}\n"
+                    content_snippet = extract_text_from_file(filepath)[:4000] if os.path.getsize(filepath) < 8 * 1024 * 1024 else "[File is large; extracted a partial preview]"
+                    file_context += f"\n--- {file_info.get('original_name') or os.path.basename(filepath)} ---\n{content_snippet}\n"
             except Exception as e:
                 logger.error(f"Error reading file {file_info['filename']}: {e}")
+
+    # Append previous chat context if continuing an existing chat
+    history_item = load_chat_by_id(chat_id)
+    history_context = ""
+    if history_item:
+        try:
+            prev_user = history_item.get('user_message') or ''
+            prev_agent = history_item.get('agent_response') or ''
+            if prev_user or prev_agent:
+                history_context = f"\n\nPrevious conversation context (trimmed):\n[User]\n{trim_context(prev_user)}\n[Agent]\n{trim_context(prev_agent)}\n"
+        except Exception as e:
+            logger.error(f"Error building history context: {e}")
 
     # Prepend mood to the message for agent guidance
     mood_prefix = ""
     if mood and mood != "default":
         mood_prefix = f"[Agent Mood: {mood}]\n"
 
-    full_message = mood_prefix + message + file_context
+    full_message = trim_context(mood_prefix + message + file_context + history_context)
 
     # Initialize task tracking
     running_tasks[task_id] = {
@@ -773,14 +853,16 @@ def chat_stream():
                 time.sleep(FILE_CHECK_INTERVAL)
 
         # Save chat history
+        elapsed = time.time() - start_time
         chat_data = {
-            'id': task_id,
+            'id': chat_id,
             'timestamp': datetime.now().isoformat(),
-            'user_message': message,
+            'user_message': trim_context(message),
             'agent_response': full_response,
             'agent_type': 'manus',
             'uploaded_files': uploaded_files,
             'mood': mood,
+            'elapsed_seconds': round(elapsed, 3),
         }
         save_chat_history(chat_data)
 
@@ -792,6 +874,39 @@ def chat_stream():
         yield """0303030"""
 
     return Response(generate(), mimetype="text/plain")
+
+def extract_text_from_file(path: str) -> str:
+    """Extract a reasonable text preview from supported files."""
+    try:
+        lower = path.lower()
+        if lower.endswith('.pdf') and PdfReader is not None:
+            text_parts: List[str] = []
+            with open(path, 'rb') as pf:
+                reader = PdfReader(pf)
+                max_pages = min(len(reader.pages), 10)
+                for i in range(max_pages):
+                    try:
+                        text_parts.append(reader.pages[i].extract_text() or '')
+                    except Exception:
+                        continue
+            return '\n'.join(text_parts)
+
+        # Default: try read as text with errors ignored
+        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+            return f.read()
+    except Exception as e:
+        logger.error(f"extract_text_from_file failed for {path}: {e}")
+        return "[Unable to extract text from file]"
+
+def trim_context(text: str, max_chars: int = 50000) -> str:
+    """Trim overly long context defensively to avoid token overflow."""
+    if not text:
+        return text
+    if len(text) <= max_chars:
+        return text
+    head = text[: max_chars // 2]
+    tail = text[-max_chars // 2 :]
+    return head + "\n... [trimmed for length] ...\n" + tail
 
 # Run flow async task
 async def run_flow_task(prompt, task_id=None):

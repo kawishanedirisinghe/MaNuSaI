@@ -362,8 +362,15 @@ let selectedMood = 'default';
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            //loadAPIStatus();
-            loadChatHistory();
+            // If URL has /chat/:id, attempt to auto-load that chat after history fetch
+            let chatIdFromUrl = null;
+            try {
+                const m = window.location.pathname.match(/\/chat\/(.+)$/);
+                if (m && m[1]) chatIdFromUrl = m[1];
+            } catch(e) {}
+
+            loadAPIStatus();
+            loadChatHistory(chatIdFromUrl);
             setupEventListeners();
             
             // Auto-refresh API status
@@ -581,7 +588,7 @@ let selectedMood = 'default';
         }
 
         // Chat History
-        async function loadChatHistory() {
+        async function loadChatHistory(chatIdFromUrl = null) {
             try {
                 const response = await fetch('/api/chat-history');
                 if (!response.ok) {
@@ -590,7 +597,14 @@ let selectedMood = 'default';
                 const data = await response.json();
                 
                 if (data.history && data.history.length > 0) {
-                    displayChatHistory(data.history.slice(-10)); // Show last 10 conversations
+                    // Sort chronological: oldest to newest
+                    const sorted = data.history.sort((a,b)=> new Date(a.timestamp) - new Date(b.timestamp));
+                    displayChatHistory(sorted.slice(-10)); // Show last 10 conversations
+                    // If URL has chat id, auto-load it
+                    if (chatIdFromUrl) {
+                        const found = sorted.find(h => h.id === chatIdFromUrl);
+                        if (found) loadHistoryItem(found);
+                    }
                 } else {
                     historyList.innerHTML = '<div class="text-center text-gray">No chat history yet</div>';
                 }
@@ -621,6 +635,13 @@ let selectedMood = 'default';
         }
 
         function loadHistoryItem(chat) {
+            // Persist selection in URL
+            try {
+                const url = new URL(window.location.href);
+                url.pathname = `/chat/${chat.id}`;
+                history.replaceState(null, '', url.toString());
+            } catch(e) {}
+
             // Clear current messages
             messagesArea.innerHTML = '';
             
@@ -697,11 +718,18 @@ let selectedMood = 'default';
 
         // Send Message
         async function sendMessage() {
+            // Check URL chat id to continue the same chat if present
+            let chatIdFromUrl = null;
+            try {
+                const m = window.location.pathname.match(/\/chat\/(.+)$/);
+                if (m && m[1]) chatIdFromUrl = m[1];
+            } catch(e) {}
+
             const message = messageInput.value.trim();
             if (!message || isProcessing) return;
 
             // Generate task ID
-            currentTaskId = 'task_' + Math.random().toString(36).slice(2);
+            currentTaskId = chatIdFromUrl || ('task_' + Math.random().toString(36).slice(2));
             
             isProcessing = true;
             updateUIForProcessing(true);
@@ -728,6 +756,7 @@ let selectedMood = 'default';
                         task_id: currentTaskId,
                         uploaded_files: uploadedFiles,
                         mood: selectedMood,
+                        chat_id: currentTaskId, // continue same chat if present
                     }),
                 });
 
@@ -1147,6 +1176,12 @@ let selectedMood = 'default';
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // Restore saved dark mode preference
+    try {
+        const pref = localStorage.getItem('dark-mode');
+        if (pref === 'true') document.body.classList.add('dark-mode');
+    } catch(e) {}
+
     const darkModeToggle = document.getElementById('darkModeToggle');
     const apiStatusBtn = document.getElementById('apiStatusBtn');
     const body = document.body;
@@ -1155,6 +1190,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const icon = darkModeToggle.querySelector('i');
         darkModeToggle.addEventListener('click', () => {
             body.classList.toggle('dark-mode');
+            try { localStorage.setItem('dark-mode', String(body.classList.contains('dark-mode'))); } catch(e) {}
             if (body.classList.contains('dark-mode')) {
                 icon.classList.remove('fa-moon');
                 icon.classList.add('fa-sun');
