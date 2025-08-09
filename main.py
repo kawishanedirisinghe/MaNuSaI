@@ -435,16 +435,57 @@ def allowed_file(filename):
     ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'csv', 'xlsx', 'py', 'js', 'html', 'css', 'json', 'xml', 'md'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def save_chat_history(chat_data):
-    """Save chat history to file"""
+
+def load_chat_history():
+    """Load chat history from file (conversation-threaded)"""
     try:
         if os.path.exists(app.config['CHAT_HISTORY_FILE']):
             with open(app.config['CHAT_HISTORY_FILE'], 'r', encoding='utf-8') as f:
-                history = json.load(f)
-        else:
-            history = []
+                return json.load(f)
+        return []
+    except Exception as e:
+        logger.error(f"Error loading chat history: {e}")
+        return []
 
-        history.append(chat_data)
+
+def _find_conversation(history: list, history_id: str) -> Optional[dict]:
+    for conv in history:
+        if conv.get('id') == history_id:
+            return conv
+    return None
+
+
+def save_conversation_exchange(history_id: str, user_message: str, agent_response: str, agent_type: str, uploaded_files: list):
+    """Append an exchange to an existing conversation or create a new one."""
+    try:
+        history = load_chat_history()
+
+        conversation = _find_conversation(history, history_id)
+        timestamp = datetime.now().isoformat()
+
+        if not conversation:
+            conversation = {
+                'id': history_id,
+                'created_at': timestamp,
+                'last_updated': timestamp,
+                'agent_type': agent_type,
+                'messages': []
+            }
+            history.append(conversation)
+
+        # Append user then agent messages
+        conversation['messages'].append({
+            'role': 'user',
+            'content': user_message,
+            'uploaded_files': uploaded_files or [],
+            'timestamp': timestamp
+        })
+        conversation['messages'].append({
+            'role': 'agent',
+            'content': agent_response,
+            'timestamp': datetime.now().isoformat()
+        })
+        conversation['last_updated'] = datetime.now().isoformat()
 
         # Keep only last 100 conversations
         if len(history) > 100:
@@ -455,16 +496,31 @@ def save_chat_history(chat_data):
     except Exception as e:
         logger.error(f"Error saving chat history: {e}")
 
-def load_chat_history():
-    """Load chat history from file"""
+
+def build_history_context(history_id: Optional[str], max_chars: int = 8000) -> str:
+    """Build a trimmed textual context from prior messages in a conversation."""
+    if not history_id:
+        return ""
     try:
-        if os.path.exists(app.config['CHAT_HISTORY_FILE']):
-            with open(app.config['CHAT_HISTORY_FILE'], 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return []
+        history = load_chat_history()
+        conversation = _find_conversation(history, history_id)
+        if not conversation or not conversation.get('messages'):
+            return ""
+
+        # Take last 10 messages to form context
+        msgs = conversation['messages'][-10:]
+        parts = ["Prior conversation context:"]
+        for m in msgs:
+            role = 'User' if m.get('role') == 'user' else 'Assistant'
+            content = m.get('content', '')
+            parts.append(f"{role}: {content}")
+        context = "\n".join(parts)
+        if len(context) > max_chars:
+            context = context[-max_chars:]
+        return context
     except Exception as e:
-        logger.error(f"Error loading chat history: {e}")
-        return []
+        logger.error(f"Error building history context: {e}")
+        return ""
 
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
@@ -670,6 +726,7 @@ def chat_stream():
     message = prompt_data["message"]
     task_id = prompt_data.get("task_id", str(uuid.uuid4()))
     uploaded_files = prompt_data.get("uploaded_files", [])
+    history_id = prompt_data.get("history_id") or task_id  # fall back to task_id if missing
 
     logger.info(f"Received request: {message}")
 
@@ -687,7 +744,14 @@ def chat_stream():
             except Exception as e:
                 logger.error(f"Error reading file {file_info['filename']}: {e}")
 
-    full_message = message + file_context
+    # Build prior conversation context
+    history_context = build_history_context(history_id)
+
+    # Compose final message with context
+    full_message = message
+    if history_context:
+        full_message = f"{history_context}\n\nUser: {message}"
+    full_message += file_context
 
     # Initialize task tracking
     running_tasks[task_id] = {
@@ -732,16 +796,14 @@ def chat_stream():
             if not new_content:
                 time.sleep(FILE_CHECK_INTERVAL)
 
-        # Save chat history
-        chat_data = {
-            'id': task_id,
-            'timestamp': datetime.now().isoformat(),
-            'user_message': message,
-            'agent_response': full_response,
-            'agent_type': 'manus',
-            'uploaded_files': uploaded_files
-        }
-        save_chat_history(chat_data)
+        # Save chat history (append to conversation)
+        save_conversation_exchange(
+            history_id=history_id,
+            user_message=message,
+            agent_response=full_response,
+            agent_type='manus',
+            uploaded_files=uploaded_files
+        )
 
         # Clean up task tracking
         if task_id in running_tasks:
@@ -900,6 +962,7 @@ def flow_stream():
     message = prompt_data["message"]
     task_id = prompt_data.get("task_id", str(uuid.uuid4()))
     uploaded_files = prompt_data.get("uploaded_files", [])
+    history_id = prompt_data.get("history_id") or task_id
 
     logger.info(f"Received Flow request: {message}")
 
@@ -917,7 +980,14 @@ def flow_stream():
             except Exception as e:
                 logger.error(f"Error reading file {file_info['filename']}: {e}")
 
-    full_message = message + file_context
+    # Build prior conversation context
+    history_context = build_history_context(history_id)
+
+    # Compose final message with context
+    full_message = message
+    if history_context:
+        full_message = f"{history_context}\n\nUser: {message}"
+    full_message += file_context
 
     # Initialize task tracking
     running_tasks[task_id] = {
@@ -962,16 +1032,14 @@ def flow_stream():
             if not new_content:
                 time.sleep(FILE_CHECK_INTERVAL)
 
-        # Save chat history
-        chat_data = {
-            'id': task_id,
-            'timestamp': datetime.now().isoformat(),
-            'user_message': message,
-            'agent_response': full_response,
-            'agent_type': 'flow',
-            'uploaded_files': uploaded_files
-        }
-        save_chat_history(chat_data)
+        # Save chat history (append to conversation)
+        save_conversation_exchange(
+            history_id=history_id,
+            user_message=message,
+            agent_response=full_response,
+            agent_type='flow',
+            uploaded_files=uploaded_files
+        )
 
         # Clean up task tracking
         if task_id in running_tasks:

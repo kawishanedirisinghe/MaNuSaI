@@ -333,6 +333,7 @@
         let isProcessing = false;
         let currentTaskId = null;
         let uploadedFiles = [];
+        let currentHistoryId = null;
         
         // DOM Elements
         const messageInput = document.getElementById('messageInput');
@@ -545,8 +546,7 @@
                 }
 
                 apiStatus.innerHTML = statusHTML;
-                 alert(apiStatus.innerText);
-                //showNotification(apiStatus.innerHTML, 'info');
+                
 
 
             } catch (error) {
@@ -607,18 +607,34 @@
             // Clear current messages
             messagesArea.innerHTML = '';
             
+            // Set current history id so next sends stick to this thread
+            currentHistoryId = chat.id;
+
             // Add historical messages
-            addMessage('user', chat.user_message, chat.uploaded_files || []);
-            addMessage('agent', chat.agent_response);
+            if (Array.isArray(chat.messages)) {
+                chat.messages.forEach(m => {
+                    if (m.role === 'user') {
+                        addMessage('user', m.content, m.uploaded_files || []);
+                    } else {
+                        addMessage('agent', m.content);
+                    }
+                });
+            } else {
+                // Backward compatibility for older schema
+                addMessage('user', chat.user_message, chat.uploaded_files || []);
+                addMessage('agent', chat.agent_response);
+            }
             
-            // Select appropriate agent
-            selectAgent(chat.agent_type || 'manus');
+            // Select appropriate agent if provided
+            if (chat.agent_type) selectAgent(chat.agent_type);
             
             // Update uploaded files display if needed
             if (chat.uploaded_files && chat.uploaded_files.length > 0) {
                 uploadedFiles = [...chat.uploaded_files];
                 displayUploadedFiles();
             }
+
+            showNotification('↩️ Continued this conversation. Your next message will use its context.', 'info');
         }
 
         // Message Functions
@@ -684,7 +700,10 @@
             if (!message || isProcessing) return;
 
             // Generate task ID
-            currentTaskId = 'task_';
+            currentTaskId = 'task_' + Math.random().toString(36).slice(2);
+            if (!currentHistoryId) {
+                currentHistoryId = currentTaskId; // start a new thread if none selected
+            }
             
             isProcessing = true;
             updateUIForProcessing(true);
@@ -709,7 +728,8 @@
                     body: JSON.stringify({ 
                         message, 
                         task_id: currentTaskId,
-                        uploaded_files: uploadedFiles 
+                        uploaded_files: uploadedFiles,
+                        history_id: currentHistoryId
                     }),
                 });
 
