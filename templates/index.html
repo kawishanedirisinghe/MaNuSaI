@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#0f172a">
     <title>OpenManus AI - Advanced Interface</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -744,6 +746,142 @@ let selectedMood = 'default';
             // Show typing indicator
             showTypingIndicator();
 
+            const useWs = true;
+            const wsPath = selectedAgent === 'manus' ? '/ws/chat' : '/ws/flow';
+            const wsProtocol = (location.protocol === 'https:') ? 'wss' : 'ws';
+            const wsUrl = `${wsProtocol}://${location.host}${wsPath}`;
+
+            try {
+                // Try WebSocket first
+                if (useWs && 'WebSocket' in window) {
+                    await new Promise((resolve, reject) => {
+                        const ws = new WebSocket(wsUrl);
+                        let agentMessage = '';
+
+                        ws.onopen = () => {
+                            ws.send(JSON.stringify({
+                                message,
+                                task_id: currentTaskId,
+                                uploaded_files: uploadedFiles,
+                                mood: selectedMood,
+                                chat_id: currentTaskId,
+                            }));
+                        };
+
+                        // Hide typing indicator and create agent message div
+                        hideTypingIndicator();
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = 'message agent-message';
+                        messagesArea.appendChild(messageDiv);
+                        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        messageDiv.innerHTML = `<div class="message-content"></div><div class="message-time">${time}</div>`;
+                        let contentDiv = messageDiv.querySelector('.message-content');
+
+                        ws.onmessage = (event) => {
+                            const line = String(event.data);
+                            if (line.includes('0303030')) {
+                                showNotification("✋AI is Succses Fully!", "info");
+                                playPatternSound();
+                                return;
+                            }
+                            if (line.includes("Activating tool: 'ask_human'")) {
+                                isProcessing = false;
+                                updateUIForProcessing(false);
+                                showNotification("✋ AI is waiting for your input", "info");
+                                playPatternSound();
+                                return;
+                            }
+                            if (
+                                line.includes('Anonymized telemetry enabled.') ||
+                                line.includes('Initialized advanced API key manager with') ||
+                                line.includes('=== Initial API Key Status ===') ||
+                                line.includes('Available=True, Usage=') ||
+                                line.includes('WARNING: This is a development server.')
+                            ) {
+                                return;
+                            }
+                            if (
+                                line.includes('Running on all addresses (0.0.0.0)') ||
+                                line.includes(' Running on http://127.0.0.1:3000') ||
+                                line.includes('* Running on http://') ||
+                                line.includes('Press CTRL+C to quit') ||
+                                line.includes('Registered API key')
+                            ) {
+                                return;
+                            }
+                            if (
+                                line.includes('Loaded API key usage data from api_key_usage.json') ||
+                                line.includes('API keys with manager')
+                            ) {
+                                return;
+                            }
+                            if (
+                                line.includes('HTTP Request:') ||
+                                line.includes('HTTP/1.1') ||
+                                line.includes('Recorded successful request') ||
+                                line.includes('Successful request with key') ||
+                                line.includes('Retrying request')
+                            ) {
+                                return;
+                            }
+                            if (line.includes('Disconnected from all MCP servers')) {
+                                playPatternSound();
+                                return;
+                            }
+                            if (
+                                line.includes('Task completed successfully with key') ||
+                                line.includes('Unexpected error with key') ||
+                                line.includes('unknown_error') ||
+                                line.includes('Attempting to rotate API key')
+                            ) {
+                                return;
+                            }
+                            if (
+                                line.includes('Randomly selected API key') ||
+                                line.includes('Rotating to API key')
+                            ) {
+                                return;
+                            }
+                            if (line.includes("✨ Manus's thoughts:")) {
+                                const cleanLine = line.trim();
+                                if (contentDiv && contentDiv.parentElement) {
+                                    contentDiv.parentElement.querySelector('.message-time').innerText = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                }
+                                addMessage('agent', cleanLine);
+                                agentMessage = '';
+                                const newMessageDiv = document.createElement('div');
+                                newMessageDiv.className = 'message agent-message';
+                                messagesArea.appendChild(newMessageDiv);
+                                const newTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                newMessageDiv.innerHTML = `<div class="message-content"></div><div class="message-time">${newTime}</div>`;
+                                contentDiv = newMessageDiv.querySelector('.message-content');
+                                messagesArea.scrollTop = messagesArea.scrollHeight;
+                                return;
+                            }
+                            agentMessage += line + '\n';
+                            if (contentDiv) {
+                                contentDiv.innerHTML = formatMessage(agentMessage);
+                                messagesArea.scrollTop = messagesArea.scrollHeight;
+                            }
+                        };
+
+                        ws.onerror = (err) => {
+                            try { ws.close(); } catch(e) {}
+                            reject(err);
+                        };
+                        ws.onclose = () => {
+                            resolve(undefined);
+                        };
+                    });
+                    // Done via WS, unlock UI
+                    isProcessing = false;
+                    updateUIForProcessing(false);
+                    return;
+                }
+            } catch (wsErr) {
+                console.warn('WebSocket failed, falling back to fetch streaming', wsErr);
+            }
+
             try {
                 const endpoint = selectedAgent === 'manus' ? '/api/chat-stream' : '/api/flow-stream';
                 const response = await fetch(endpoint, {
@@ -790,22 +928,16 @@ let selectedMood = 'default';
                     for (const line of lines) {
                         if (line.includes('0303030')) {
                             showNotification("✋AI is Succses Fully!", "info");
-
                             playPatternSound();
                             continue;
                         }
-
                         if (line.includes("Activating tool: 'ask_human'")) {
-                            // Enable message input immediately
                             isProcessing = false;
                             updateUIForProcessing(false);
-
-                            // Show a special notification
                             showNotification("✋ AI is waiting for your input", "info");
                             playPatternSound();
                             continue;
                         }
-
                         if (line.includes('Anonymized telemetry enabled. See https://docs.browser-use.com/development/telemetry for more information.') || 
                             line.includes('Initialized advanced API key manager with') ||
                             line.includes('=== Initial API Key Status ===') ||
@@ -843,34 +975,24 @@ let selectedMood = 'default';
                             continue;
                         }
                         
-
                         if (line.includes('Randomly selected API key') || 
                             line.includes('Rotating to API key')) {
                             continue;
                         }
-
                         
                         if (line.includes("✨ Manus's thoughts:")) {
                             const cleanLine = line.trim();
-
-                            // Close current message box
                             if (contentDiv && contentDiv.parentElement) {
                                 contentDiv.parentElement.querySelector('.message-time').innerText = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                             }
-
-                            // Add separate thoughts message
                             addMessage('agent', cleanLine);
-
-                            // Start a new agent message box
                             agentMessage = '';
                             const newMessageDiv = document.createElement('div');
                             newMessageDiv.className = 'message agent-message';
                             messagesArea.appendChild(newMessageDiv);
-
                             const newTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                             newMessageDiv.innerHTML = `<div class="message-content"></div><div class="message-time">${newTime}</div>`;
                             contentDiv = newMessageDiv.querySelector('.message-content');
-
                             messagesArea.scrollTop = messagesArea.scrollHeight;
                             continue;
                         }
@@ -882,27 +1004,13 @@ let selectedMood = 'default';
                         }
                     }
                 }
-
-                // Process any remaining content
-                if (buffer && !buffer.includes('0303030') && contentDiv) {
-                    agentMessage += buffer;
-                    contentDiv.innerHTML = formatMessage(agentMessage);
-                }
-
-                // Clear uploaded files after successful processing
-                uploadedFiles = [];
-                displayUploadedFiles();
-
-            } catch (error) {
-                hideTypingIndicator();
-                addMessage('agent', `❌ Error: ${error.message}`);
-                console.error('Error:', error);
+            } catch (e) {
+                console.error(e);
+                showNotification('An error occurred. Please try again.', 'error');
             } finally {
                 isProcessing = false;
-                currentTaskId = null;
                 updateUIForProcessing(false);
-                loadAPIStatus();
-                loadChatHistory();
+                hideTypingIndicator();
             }
         }
 

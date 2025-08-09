@@ -42,6 +42,15 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 os.makedirs(app.config['WORKSPACE'], exist_ok=True)
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
+# Security headers for HTTPS/WSS deployments
+@app.after_request
+def set_security_headers(response):
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Referrer-Policy'] = 'no-referrer'
+    return response
+
 # Global variable to track running tasks
 running_tasks = {}
 
@@ -652,6 +661,9 @@ def sandbox_exec():
         # Run in event loop
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        # Ensure sandbox is created before executing
+        if not getattr(SANDBOX_CLIENT, 'sandbox', None):
+            loop.run_until_complete(SANDBOX_CLIENT.create(config=app_config.sandbox))
         output = loop.run_until_complete(SANDBOX_CLIENT.run_command(command, timeout=timeout))
         loop.close()
         return jsonify({"output": output})
