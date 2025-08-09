@@ -340,10 +340,14 @@ LOG_FILE = 'logs/root_stream.log'
 FILE_CHECK_INTERVAL = 2  # 文件检查间隔（秒）
 PROCESS_TIMEOUT = 6099999990    # 最长处理时间（秒）
 
-def get_files_pathlib(root_dir):
-    """使用pathlib递归获取文件路径"""
-    root = Path(root_dir)
-    return [str(path) for path in root.glob('**/*') if path.is_file()]
+# Utility: load/save chat by id
+
+def load_chat_by_id(chat_id: str) -> Optional[dict]:
+    history = load_chat_history()
+    for item in history:
+        if item.get('id') == chat_id:
+            return item
+    return None
 
 @app.route('/')
 def index():
@@ -444,6 +448,8 @@ def save_chat_history(chat_data):
         else:
             history = []
 
+        # Replace existing with same id
+        history = [h for h in history if h.get('id') != chat_data.get('id')]
         history.append(chat_data)
 
         # Keep only last 100 conversations
@@ -465,6 +471,13 @@ def load_chat_history():
     except Exception as e:
         logger.error(f"Error loading chat history: {e}")
         return []
+
+@app.route('/api/chat/<chat_id>')
+def get_chat_by_id(chat_id: str):
+    item = load_chat_by_id(chat_id)
+    if not item:
+        return jsonify({"error": "Not found"}), 404
+    return jsonify(item)
 
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
@@ -556,6 +569,27 @@ def stop_task():
     except Exception as e:
         logger.error(f"Error stopping task: {e}")
         return jsonify({'error': str(e)}), 500
+
+# Sandbox terminal endpoint
+from app.sandbox.client import SANDBOX_CLIENT
+
+@app.route('/api/sandbox/exec', methods=['POST'])
+def sandbox_exec():
+    try:
+        data = request.get_json() or {}
+        command = data.get('command', '').strip()
+        timeout = int(data.get('timeout', app_config.sandbox.timeout))
+        if not command:
+            return jsonify({"error": "No command provided"}), 400
+        # Run in event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        output = loop.run_until_complete(SANDBOX_CLIENT.run_command(command, timeout=timeout))
+        loop.close()
+        return jsonify({"output": output})
+    except Exception as e:
+        logger.error(f"Sandbox exec error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 async def main(prompt, task_id=None):
     """Enhanced main function with advanced API key rotation and stop functionality"""
@@ -670,6 +704,7 @@ def chat_stream():
     message = prompt_data["message"]
     task_id = prompt_data.get("task_id", str(uuid.uuid4()))
     uploaded_files = prompt_data.get("uploaded_files", [])
+    mood = prompt_data.get("mood", "default")
 
     logger.info(f"Received request: {message}")
 
@@ -687,7 +722,12 @@ def chat_stream():
             except Exception as e:
                 logger.error(f"Error reading file {file_info['filename']}: {e}")
 
-    full_message = message + file_context
+    # Prepend mood to the message for agent guidance
+    mood_prefix = ""
+    if mood and mood != "default":
+        mood_prefix = f"[Agent Mood: {mood}]\n"
+
+    full_message = mood_prefix + message + file_context
 
     # Initialize task tracking
     running_tasks[task_id] = {
@@ -739,7 +779,8 @@ def chat_stream():
             'user_message': message,
             'agent_response': full_response,
             'agent_type': 'manus',
-            'uploaded_files': uploaded_files
+            'uploaded_files': uploaded_files,
+            'mood': mood,
         }
         save_chat_history(chat_data)
 

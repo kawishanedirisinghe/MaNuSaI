@@ -8,6 +8,7 @@ from app.tool.terminate import Terminate
 from app.tool.tool_collection import ToolCollection
 from app.tool.web_search import WebSearch
 from app.tool.crawl4ai import Crawl4aiTool
+from app.tool.token_trimmer import TokenTrimmer
 
 
 __all__ = [
@@ -20,5 +21,6 @@ __all__ = [
     "ToolCollection",
     "CreateChatCompletion",
     "PlanningTool",
-    "Crawl4aiTool"
+    "Crawl4aiTool",
+    "TokenTrimmer",
 ]
