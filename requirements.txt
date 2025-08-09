@@ -44,3 +44,4 @@ pyyaml==6.0.2
 werkzeug
 selenium
 webdriver-manager
+PyPDF2==3.0.1
