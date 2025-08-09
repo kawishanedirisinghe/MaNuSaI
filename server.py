@@ -5,6 +5,7 @@ import threading
 import time
 import queue
 from typing import Optional
+from datetime import datetime
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
@@ -16,6 +17,7 @@ from app.logger import log_queue, logger
 from main import app as flask_app  # noqa: E402
 from main import run_async_task, run_flow_async_task, running_tasks  # noqa: E402
 from main import PROCESS_TIMEOUT, FILE_CHECK_INTERVAL  # noqa: E402
+from main import load_chat_by_id, extract_text_from_file, trim_context, save_chat_history  # noqa: E402
 
 
 app = FastAPI(title="OpenManus ASGI Server")
@@ -28,8 +30,11 @@ async def _stream_task_over_websocket(
     websocket: WebSocket,
     task_thread: threading.Thread,
     task_id: str,
+    *,
+    save_meta: Optional[dict] = None,
 ) -> None:
     start_time = time.time()
+    full_response_parts: list[str] = []
     while task_thread.is_alive() or not log_queue.empty():
         # Stop signal
         if running_tasks.get(task_id, {}).get("stop_flag", False):
@@ -54,12 +59,31 @@ async def _stream_task_over_websocket(
             pass
 
         if new_content:
+            full_response_parts.append(new_content)
             try:
                 await websocket.send_text(new_content)
             except Exception:
                 break
         else:
             await asyncio.sleep(FILE_CHECK_INTERVAL)
+
+    # Persist chat history if requested
+    if save_meta:
+        try:
+            elapsed = time.time() - start_time
+            chat_data = {
+                "id": save_meta.get("chat_id") or task_id,
+                "timestamp": datetime.now().isoformat(),
+                "user_message": trim_context(save_meta.get("user_message", "")),
+                "agent_response": "".join(full_response_parts),
+                "agent_type": save_meta.get("agent_type", "manus"),
+                "uploaded_files": save_meta.get("uploaded_files", []),
+                "mood": save_meta.get("mood", "default"),
+                "elapsed_seconds": round(elapsed, 3),
+            }
+            save_chat_history(chat_data)
+        except Exception as e:
+            logger.error(f"Failed to save chat history (WS): {e}")
 
     # Final sentinel
     try:
@@ -86,16 +110,60 @@ async def websocket_chat(websocket: WebSocket):
             await websocket.close()
             return
 
+        # Build file context
+        file_context = ""
+        if uploaded_files:
+            file_context = "\n\nUploaded files context:\n"
+            for file_info in uploaded_files:
+                try:
+                    filepath = os.path.join(flask_app.config['UPLOAD_FOLDER'], file_info.get('filename', ''))
+                    if filepath and os.path.exists(filepath):
+                        snippet = extract_text_from_file(filepath)
+                        if len(snippet) > 4000:
+                            snippet = snippet[:4000]
+                        file_context += f"\n--- {file_info.get('original_name') or os.path.basename(filepath)} ---\n{snippet}\n"
+                except Exception as e:
+                    logger.error(f"WS file read error {file_info}: {e}")
+
+        # History context
+        history_context = ""
+        history_item = load_chat_by_id(chat_id)
+        if history_item:
+            try:
+                prev_user = history_item.get('user_message') or ''
+                prev_agent = history_item.get('agent_response') or ''
+                if prev_user or prev_agent:
+                    history_context = (
+                        f"\n\nPrevious conversation context (trimmed):\n[User]\n{trim_context(prev_user)}\n[Agent]\n{trim_context(prev_agent)}\n"
+                    )
+            except Exception as e:
+                logger.error(f"WS build history context error: {e}")
+
+        # Mood prefix
+        mood_prefix = f"[Agent Mood: {mood}]\n" if mood and mood != "default" else ""
+        full_message = trim_context(mood_prefix + message + file_context + history_context)
+
         # Launch background task using existing function
         task_thread = threading.Thread(
             target=run_async_task,
-            args=(message, task_id),
+            args=(full_message, task_id),
             daemon=True,
         )
         task_thread.start()
 
-        # Stream results over WS
-        await _stream_task_over_websocket(websocket, task_thread, task_id)
+        # Stream results over WS and persist
+        await _stream_task_over_websocket(
+            websocket,
+            task_thread,
+            task_id,
+            save_meta={
+                "chat_id": chat_id,
+                "user_message": message,
+                "uploaded_files": uploaded_files,
+                "mood": mood,
+                "agent_type": "manus",
+            },
+        )
 
     except WebSocketDisconnect:
         # Client disconnected; signal stop if task exists
@@ -130,15 +198,42 @@ async def websocket_flow(websocket: WebSocket):
             await websocket.close()
             return
 
+        # Build file context (smaller limit for flow)
+        file_context = ""
+        if uploaded_files:
+            file_context = "\n\nUploaded files context:\n"
+            for file_info in uploaded_files:
+                try:
+                    filepath = os.path.join(flask_app.config['UPLOAD_FOLDER'], file_info.get('filename', ''))
+                    if filepath and os.path.exists(filepath):
+                        snippet = extract_text_from_file(filepath)
+                        if len(snippet) > 2000:
+                            snippet = snippet[:2000]
+                        file_context += f"\n--- {file_info.get('original_name') or os.path.basename(filepath)} ---\n{snippet}\n"
+                except Exception as e:
+                    logger.error(f"WS flow file read error {file_info}: {e}")
+
+        full_message = message + file_context
+
         # Launch background flow task
         task_thread = threading.Thread(
             target=run_flow_async_task,
-            args=(message, task_id),
+            args=(full_message, task_id),
             daemon=True,
         )
         task_thread.start()
 
-        await _stream_task_over_websocket(websocket, task_thread, task_id)
+        await _stream_task_over_websocket(
+            websocket,
+            task_thread,
+            task_id,
+            save_meta={
+                "chat_id": task_id,
+                "user_message": message,
+                "uploaded_files": uploaded_files,
+                "agent_type": "flow",
+            },
+        )
 
     except WebSocketDisconnect:
         try:
