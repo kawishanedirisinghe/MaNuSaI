@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenManus AI - Advanced Interface</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+       <style>:root {--primary: #6366f1;--primary-dark: #4f46e5;--primary-light: #818cf8;--secondary: #10b981;--secondary-dark: #059669;--danger: #ef4444;--warning: #f59e0b;--success: #10b981;--info: #3b82f6;--dark: #0f172a;--dark-light: #1e293b;--gray: #64748b;--gray-light: #94a3b8;--light: #f8fafc;--white: #ffffff;--border: #e2e8f0;--shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);--shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.25);--gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);--gradient-secondary: linear-gradient(135deg, var(--secondary) 0%, var(--info) 100%);--glass-bg: rgba(255, 255, 255, 0.1);--glass-border: rgba(255, 255, 255, 0.2);}* {box-sizing: border-box;margin: 0;padding: 0;}body {font-family: 'Inter', sans-serif;background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);color: var(--dark);line-height: 1.6;min-height: 100vh;overflow-x: hidden;}/* Animated Background */.animated-bg {position: fixed;top: 0;left: 0;width: 100%;height: 100%;z-index: -1;background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);}.animated-bg::before {content: '';position: absolute;top: 0;left: 0;width: 100%;height: 100%;background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");animation: float 20s ease-in-out infinite;}@keyframes float {0%, 100% { transform: translateY(0px); }50% { transform: translateY(-20px); }}.container {max-width: 1400px;margin: 0 auto;padding: 20px;position: relative;z-index: 1;}/* Header */.header {display: flex;justify-content: space-between;align-items: center;padding: 20px 0;margin-bottom: 30px;}.logo {display: flex;align-items: center;gap: 15px;}.logo-icon {width: 50px;height: 50px;background: var(--gradient-primary);border-radius: 12px;display: flex;align-items: center;justify-content: center;color: white;font-size: 1.5rem;box-shadow: var(--shadow);}.logo-text {font-size: 2rem;font-weight: 700;background: linear-gradient(135deg, var(--white) 0%, rgba(255,255,255,0.8) 100%);-webkit-background-clip: text;-webkit-text-fill-color: transparent;background-clip: text;}.header-actions {display: flex;gap: 15px;align-items: center;}/* Glass Card Effect */.glass-card {background: var(--glass-bg);backdrop-filter: blur(20px);-webkit-backdrop-filter: blur(20px);border: 1px solid var(--glass-border);border-radius: 20px;box-shadow: var(--shadow);}/* Main Layout */.main-layout {display: grid;grid-template-columns: 350px 1fr 300px;gap: 25px;min-height: calc(100vh - 150px);}/* Sidebar */.sidebar {display: flex;flex-direction: column;gap: 20px;}.sidebar-section {padding: 25px;}.section-title {font-size: 1.1rem;font-weight: 600;color: var(--white);margin-bottom: 20px;display: flex;align-items: center;gap: 10px;}/* File Upload Area */.upload-area {border: 2px dashed var(--glass-border);border-radius: 15px;padding: 30px;text-align: center;transition: all 0.3s ease;cursor: pointer;position: relative;overflow: hidden;}.upload-area:hover {border-color: var(--primary-light);background: rgba(99, 102, 241, 0.1);}.upload-area.dragover {border-color: var(--primary);background: rgba(99, 102, 241, 0.2);transform: scale(1.02);}.upload-icon {font-size: 3rem;color: var(--primary-light);margin-bottom: 15px;}.upload-text {color: var(--white);font-weight: 500;margin-bottom: 10px;}.upload-subtext {color: rgba(255, 255, 255, 0.7);font-size: 0.9rem;}/* Uploaded Files */.uploaded-files {max-height: 200px;overflow-y: auto;margin-top: 15px;}.file-item {display: flex;align-items: center;gap: 12px;padding: 12px;background: rgba(255, 255, 255, 0.1);border-radius: 10px;margin-bottom: 8px;transition: all 0.2s ease;}.file-item:hover {background: rgba(255, 255, 255, 0.2);}.file-icon {width: 35px;height: 35px;background: var(--gradient-secondary);border-radius: 8px;display: flex;align-items: center;justify-content: center;color: white;font-size: 0.9rem;}.file-info {flex: 1;min-width: 0;}.file-name {color: var(--white);font-weight: 500;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;font-size: 0.9rem;}.file-size {color: rgba(255, 255, 255, 0.7);font-size: 0.8rem;}.file-remove {background: var(--danger);border: none;border-radius: 50%;width: 24px;height: 24px;display: flex;align-items: center;justify-content: center;color: white;cursor: pointer;transition: all 0.2s ease;}.file-remove:hover {background: #dc2626;transform: scale(1.1);}/* API Status */.api-status-item {display: flex;align-items: center;gap: 12px;padding: 12px 0;border-bottom: 1px solid rgba(255, 255, 255, 0.1);}.api-status-item:last-child {border-bottom: none;}.status-indicator {width: 10px;height: 10px;border-radius: 50%;flex-shrink: 0;}.status-indicator.online {background: var(--success);box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);}.status-indicator.offline {background: var(--danger);}.api-info {flex: 1;min-width: 0;}.api-name {color: var(--white);font-weight: 500;font-size: 0.9rem;}.api-usage {color: rgba(255, 255, 255, 0.7);font-size: 0.8rem;}/* Chat Container */.chat-container {padding: 0;display: flex;flex-direction: column;position: relative;}.chat-header {padding: 25px;border-bottom: 1px solid var(--glass-border);display: flex;justify-content: space-between;align-items: center;}.chat-title {font-size: 1.5rem;font-weight: 600;color: var(--white);}.agent-selector {display: flex;gap: 10px;}.agent-button {padding: 10px 20px;border-radius: 25px;border: 1px solid var(--glass-border);background: transparent;color: var(--white);font-weight: 500;cursor: pointer;transition: all 0.3s ease;display: flex;align-items: center;gap: 8px;}.agent-button:hover {background: rgba(255, 255, 255, 0.1);transform: translateY(-2px);}.agent-button.active {background: var(--gradient-primary);border-color: var(--primary);box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);}/* Messages Area */.messages-area {flex: 1;padding: 50px;overflow-y: auto;display: flex;flex-direction: column;gap: 50px;max-height: calc(200vh - 600px);}.message {max-width: 80%;padding: 18px 22px;border-radius: 20px;position: relative;animation: messageSlide 0.3s ease-out;line-height: 1.6;font-size: 0.95rem;}@keyframes messageSlide {from { opacity: 0; transform: translateY(20px); }to { opacity: 1; transform: translateY(0); }}.user-message {align-self: flex-end;background: var(--gradient-primary);color: white;border-bottom-right-radius: 8px;box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);}.agent-message {align-self: flex-start;background: rgba(255, 255, 255, 0.95);color: var(--dark);border-bottom-left-radius: 8px;box-shadow: var(--shadow);}.message-content {margin-bottom: 8px;}.message-time {font-size: 0.75rem;opacity: 0.7;font-weight: 400;}.message-files {margin-top: 10px;display: flex;flex-wrap: wrap;gap: 8px;}.message-file-tag {background: rgba(0, 0, 0, 0.1);padding: 4px 8px;border-radius: 12px;font-size: 0.75rem;display: flex;align-items: center;gap: 4px;}/* Typing Indicator */.typing-indicator {align-self: flex-start;background: rgba(255, 255, 255, 0.95);padding: 18px 22px;border-radius: 20px;border-bottom-left-radius: 8px;display: flex;gap: 6px;align-items: center;}.typing-dot {width: 8px;height: 8px;background: var(--gray);border-radius: 50%;animation: typingBounce 1.4s infinite ease-in-out;}.typing-dot:nth-child(2) { animation-delay: 0.2s; }.typing-dot:nth-child(3) { animation-delay: 0.4s; }@keyframes typingBounce {0%, 60%, 100% { transform: translateY(0); }30% { transform: translateY(-10px); }}/* Input Area */.input-area {padding: 25px;border-top: 1px solid var(--glass-border);background: rgba(255, 255, 255, 0.05);}.input-container {display: flex;gap: 15px;align-items: flex-end;}.message-input {flex: 1;background: rgba(255, 255, 255, 0.9);border: 1px solid var(--border);border-radius: 20px;padding: 15px 20px;font-family: inherit;font-size: 1rem;resize: none;min-height: 50px;max-height: 120px;transition: all 0.3s ease;}.message-input:focus {outline: none;border-color: var(--primary);box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);background: white;}.input-actions {display: flex;gap: 10px;}.action-button {width: 50px;height: 50px;border-radius: 50%;border: none;cursor: pointer;transition: all 0.3s ease;display: flex;align-items: center;justify-content: center;font-size: 1.2rem;position: relative;}.send-button {background: var(--gradient-primary);color: white;box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);}.send-button:hover:not(:disabled) {transform: translateY(-2px);box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);}.send-button:disabled {background: var(--gray-light);cursor: not-allowed;transform: none;box-shadow: none;}.stop-button {background: var(--danger);color: white;box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);}.stop-button:hover {background: #dc2626;transform: translateY(-2px);box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);}/* Right Sidebar - Chat History */.chat-history {padding: 25px;max-height: calc(100vh - 150px);overflow-y: auto;}.history-item {padding: 15px;background: rgba(255, 255, 255, 0.1);border-radius: 12px;margin-bottom: 12px;cursor: pointer;transition: all 0.2s ease;}.history-item:hover {background: rgba(255, 255, 255, 0.2);transform: translateX(5px);}.history-preview {color: var(--white);font-size: 0.9rem;font-weight: 500;margin-bottom: 5px;display: -webkit-box;-webkit-line-clamp: 2;-webkit-box-orient: vertical;overflow: hidden;}.history-time {color: rgba(255, 255, 255, 0.7);font-size: 0.75rem;}/* Loading Spinner */.spinner {width: 20px;height: 20px;border: 2px solid rgba(255, 255, 255, 0.3);border-radius: 50%;border-top-color: white;animation: spin 1s linear infinite;}@keyframes spin {to { transform: rotate(360deg); }}/* Buttons */.btn {padding: 12px 24px;border-radius: 12px;border: none;font-weight: 500;cursor: pointer;transition: all 0.3s ease;display: inline-flex;align-items: center;gap: 8px;text-decoration: none;font-size: 0.9rem;}.btn-primary {background: var(--gradient-primary);color: white;box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);}.btn-primary:hover {transform: translateY(-2px);box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);}.btn-secondary {background: rgba(255, 255, 255, 0.2);color: var(--white);border: 1px solid var(--glass-border);}.btn-secondary:hover {background: rgba(255, 255, 255, 0.3);transform: translateY(-2px);}/* Responsive Design */@media (max-width: 1200px) {.main-layout {grid-template-columns: 300px 1fr;}.chat-history {display: none;}}@media (max-width: 768px) {.main-layout {grid-template-columns: 1fr;}.sidebar {order: 2;grid-template-columns: 1fr 1fr;display: grid;gap: 20px;}.container {padding: 15px;}.header {flex-direction: column;gap: 20px;text-align: center;}}/* Utility Classes */.hidden { display: none !important; }.text-center { text-align: center; }.text-white { color: var(--white); }.text-gray { color: var(--gray-light); }.mb-2 { margin-bottom: 0.5rem; }.mb-4 { margin-bottom: 1rem; }.mt-4 { margin-top: 1rem; }/* Scrollbar Styling */::-webkit-scrollbar {width: 6px;}::-webkit-scrollbar-track {background: rgba(255, 255, 255, 0.1);border-radius: 3px;}::-webkit-scrollbar-thumb {background: rgba(255, 255, 255, 0.3);border-radius: 3px;}::-webkit-scrollbar-thumb:hover {background: rgba(255, 255, 255, 0.5);}</style>
+
+    <style>
+        /* Dark Mode & Full Page Chat */
+        body {
+            background: var(--dark) !important;
+            color: var(--light) !important;
+        }
+
+        .animated-bg {
+            background: var(--dark) !important;
+        }
+
+        .animated-bg::before {
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") !important;
+        }
+
+        .glass-card {
+            background: var(--dark-light) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .main-layout {
+            grid-template-columns: 0 1fr 0 !important;
+            gap: 0 !important;
+            min-height: calc(100vh - 95px) !important;
+            padding: 0 !important;
+        }
+
+        .sidebar, .chat-history {
+            display: none !important;
+        }
+
+        .chat-container {
+            border-radius: 0 !important;
+            height: 100% !important;
+        }
+
+        .chat-header {
+            background: var(--dark-light) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 0 !important;
+        }
+
+        .messages-area {
+            max-height: calc(100vh - 270px) !important;
+            padding: 25px !important;
+        }
+
+        .agent-message {
+            background: var(--dark-light) !important;
+            color: var(--light) !important;
+        }
+
+        .input-area {
+            background: var(--dark-light) !important;
+            border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .message-input {
+            background: #0f172a !important;
+            border-color: #334155 !important;
+            color: var(--light) !important;
+        }
+
+        .message-input:focus {
+            background: #0f172a !important;
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+        }
+
+        .header {
+            padding: 20px !important;
+            background: var(--dark-light) !important;
+            margin-bottom: 0 !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .container {
+            max-width: 100% !important;
+            padding: 0 !important;
+        }
+    </style>
+    
+
+    <style>
+        /* Dark Mode & Full Page Chat */
+        body {
+            background: var(--dark) !important;
+            color: var(--light) !important;
+        }
+
+        .animated-bg {
+            background: var(--dark) !important;
+        }
+
+        .animated-bg::before {
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") !important;
+        }
+
+        .glass-card {
+            background: var(--dark-light) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .main-layout {
+            grid-template-columns: 0 1fr 0 !important;
+            gap: 0 !important;
+            min-height: calc(100vh - 95px) !important;
+            padding: 0 !important;
+        }
+
+        .sidebar, .chat-history {
+            display: none !important;
+        }
+
+        .chat-container {
+            border-radius: 0 !important;
+            height: 100% !important;
+        }
+
+        .chat-header {
+            background: var(--dark-light) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 0 !important;
+        }
+
+        .messages-area {
+            max-height: calc(100vh - 270px) !important;
+            padding: 25px !important;
+        }
+
+        .agent-message {
+            background: var(--dark-light) !important;
+            color: var(--light) !important;
+        }
+
+        .input-area {
+            background: var(--dark-light) !important;
+            border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .message-input {
+            background: #0f172a !important;
+            border-color: #334155 !important;
+            color: var(--light) !important;
+        }
+
+        .message-input:focus {
+            background: #0f172a !important;
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+        }
+
+        .header {
+            padding: 20px !important;
+            background: var(--dark-light) !important;
+            margin-bottom: 0 !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .container {
+            max-width: 100% !important;
+            padding: 0 !important;
+        }
+    </style>
+    
+</head>
+<body>
+    <div class="animated-bg"></div>
+    
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <div class="logo-text">OpenManus AI</div>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="clearChat()">
+                    <i class="fas fa-trash"></i> Clear Chat
+                </button>
+                <button class="btn btn-primary" onclick="toggleHistory()">
+                    <i class="fas fa-history"></i> History
+                </button>
+            </div>
+        </header>
+        <audio id="patternSound">
+            <source src="https://www.freesoundslibrary.com/wp-content/uploads/2020/06/success-sound-effect.mp3" type="audio/mpeg">
+        </audio>
+
+        <div class="main-layout">
+            <!-- Left Sidebar -->
+            <aside class="sidebar">
+                <div class="glass-card sidebar-section">
+                    <h3 class="section-title">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        File Upload
+                    </h3>
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <div class="upload-text">Drop files here or click to upload</div>
+                        <div class="upload-subtext">Supports: PDF, TXT, DOC, Images, Code files</div>
+                        <input type="file" id="fileInput" multiple accept=".txt,.pdf,.png,.jpg,.jpeg,.gif,.doc,.docx,.csv,.xlsx,.py,.js,.html,.css,.json,.xml,.md" style="display: none;">
+                    </div>
+                    <div class="uploaded-files" id="uploadedFiles"></div>
+                </div>
+                <!-- API Status Section -->
+                <div class="glass-card sidebar-section">
+                    <h3 class="section-title">
+                        <i class="fas fa-server"></i>
+                        API Status
+                    </h3>
+
+                    <button  id="apiStatusBtn"  class="btn btn-sm btn-primary">
+                        <i class="fas fa-sync-alt"></i> Check Status
+                    </button>
+                    
+                    <style>
+                        .btn {
+                            padding: 10px 20px;
+                            border-radius: 25px;
+                            border: 1px solid var(--glass-border);
+                            background: transparent;
+                            color: var(--white);
+                            font-weight: 500;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 8px;
+                        }
+                
+                        .btn:hover {
+                            background: rgba(255, 255, 255, 0.1);
+                            transform: translateY(-2px);
+                        }
+                
+                        .btn.btn-primary {
+                            background: var(--gradient-primary);
+                            border-color: var(--primary);
+                            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+                        }
+                
+                        .btn.btn-secondary {
+                            background: var(--gradient-secondary);
+                        }
+                
+                        .btn-sm {
+                            padding: 5px 10px;
+                            font-size: 0.8rem;
+                            border-radius: 15px;
+                        }
+                    </style>
+                    
+                    <div id="apiStatus">
+                        <div class="api-status-item">
+                            <div class="status-indicator"></div>
+                            <div class="api-info">
+                                <div class="api-name">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Chat Area -->
+            <main class="glass-card chat-container">
+
+
+                <div class="messages-area" id="messagesArea">
+                    <div class="message agent-message">
+                        <div class="message-content">
+                            🚀 Welcome to OpenManus AI! I'm your advanced AI assistant with file processing capabilities. Upload files, ask questions, and let's get started!
+                        </div>
+                        <div class="message-time">Just now</div>
+                    </div>
+                </div>
+
+                <div class="input-area">
+             
+                    <div class="input-container">
+                               <div class="agent-selector">
+                        <button id="manusButton" class="agent-button active">
+                            <i class="fas fa-brain"></i> Manus
+                        </button>
+                        <button id="flowButton" class="agent-button">
+                            <i class="fas fa-project-diagram"></i> Flow
+                        </button>
+                    </div>
+                        <textarea id="messageInput" class="message-input" placeholder="Type your message here..." rows="1"></textarea>
+                        <div class="input-actions">
+                            <button id="stopButton" class="action-button stop-button hidden">
+                                <i class="fas fa-stop"></i>
+                            </button>
+                            <button id="sendButton" class="action-button send-button">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Sidebar - Chat History -->
+            <aside class="glass-card chat-history" id="chatHistory">
+                <h3 class="section-title">
+                    <i class="fas fa-history"></i>
+                    Chat History
+                </h3>
+                <div id="historyList">
+                    <div class="text-center text-gray">
+                        No chat history yet
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let selectedAgent = 'manus';
+        let isProcessing = false;
+        let currentTaskId = null;
+        let uploadedFiles = [];
+        
+        // DOM Elements
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const stopButton = document.getElementById('stopButton');
+        const messagesArea = document.getElementById('messagesArea');
+        const apiStatus = document.getElementById('apiStatus');
+        const manusButton = document.getElementById('manusButton');
+        const flowButton = document.getElementById('flowButton');
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadedFilesContainer = document.getElementById('uploadedFiles');
+        const chatHistory = document.getElementById('chatHistory');
+        const historyList = document.getElementById('historyList');
+        const patternSound = document.getElementById('patternSound');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            //loadAPIStatus();
+            loadChatHistory();
+            setupEventListeners();
+            
+            // Auto-refresh API status
+           // setInterval(loadAPIStatus, 90000);
+
+            const apiStatusBtn = document.getElementById('apiStatusBtn');
+            if (apiStatusBtn) {
+                apiStatusBtn.addEventListener('click', () => {
+                    loadAPIStatus(); // already defined function
+                   //alert('🔑 Checking API Status...'); // <-- THIS will appear on button click
+                    playPatternSound(); // Optional: sound effect
+                });
+        }
+        });
+
+        function playPatternSound() {
+            try {
+                patternSound.currentTime = 0;
+                patternSound.play().catch(e => console.log("Audio play failed:", e));
+            } catch (error) {
+                console.log("Audio playback failed:", error);
+            }
+        }
+        
+        function setupEventListeners() {
+            // Message input auto-resize
+            messageInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            });
+
+            // Send message on Enter (without Shift)
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Button event listeners
+            sendButton.addEventListener('click', sendMessage);
+            stopButton.addEventListener('click', stopTask);
+            manusButton.addEventListener('click', () => selectAgent('manus'));
+            flowButton.addEventListener('click', () => selectAgent('flow'));
+
+            // File upload events
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            uploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+            });
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                if (e.dataTransfer.files.length > 0) {
+                    handleFiles(e.dataTransfer.files);
+                }
+            });
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFiles(e.target.files);
+                }
+            });
+        }
+
+        // Agent Selection
+        function selectAgent(agent) {
+            selectedAgent = agent;
+            
+            // Update UI
+            if (agent === 'manus') {
+                manusButton.classList.add('active');
+                flowButton.classList.remove('active');
+                addMessage('agent', `🧠 Switched to Manus agent. Ready for general AI assistance and file analysis!`);
+            } else {
+                flowButton.classList.add('active');
+                manusButton.classList.remove('active');
+                addMessage('agent', `🔄 Switched to Flow agent. Ready for complex planning and workflow tasks!`);
+            }
+        }
+
+        async function handleFiles(files) {
+            for (let file of files) {
+                await uploadFile(file);
+            }
+        }
+
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Upload failed with status ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    uploadedFiles.push(result.file_info);
+                    displayUploadedFiles();
+                    showNotification(`✅ ${file.name} uploaded successfully!`, 'success');
+                } else {
+                    showNotification(`❌ Upload failed: ${result.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showNotification(`❌ Upload error: ${error.message}`, 'error');
+                console.error('Upload error:', error);
+            }
+        }
+
+        function displayUploadedFiles() {
+            uploadedFilesContainer.innerHTML = '';
+            
+            if (uploadedFiles.length === 0) {
+                uploadedFilesContainer.innerHTML = '<div class="text-center text-gray">No files uploaded</div>';
+                return;
+            }
+            
+            uploadedFiles.forEach((file, index) => {
+                const fileDiv = document.createElement('div');
+                fileDiv.className = 'file-item';
+                fileDiv.innerHTML = `
+                    <div class="file-icon">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <div class="file-info">
+                        <div class="file-name">${file.original_name}</div>
+                        <div class="file-size">${formatFileSize(file.size)}</div>
+                    </div>
+                    <button class="file-remove" onclick="removeFile(${index})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                uploadedFilesContainer.appendChild(fileDiv);
+            });
+        }
+
+        function removeFile(index) {
+            uploadedFiles.splice(index, 1);
+            displayUploadedFiles();
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // API Status
+        
+        async function loadAPIStatus() {
+            try {
+                const response = await fetch('/api/keys/status');
+                if (!response.ok) {
+                    throw new Error(`API status check failed with status ${response.status}`);
+                }
+                const keys = await response.json();
+
+                let statusHTML = '';
+                if (keys && keys.length > 0) {
+                    keys.forEach(key => {
+                        const isOnline = key.available;
+                        const usagePercentage = Math.round((key.usage.requests_this_day / key.limits.max_per_day) * 100);
+                        
+                        statusHTML += `
+                        ${key.name} - ${isOnline ? 'online' : 'offline'} - ${key.usage.requests_this_day}/${key.limits.max_per_day} - (${usagePercentage}%)
+                        `;
+                    });
+                } else {
+                    statusHTML = `
+                        <div class="api-status-item">
+                            <div class="status-indicator offline"></div>
+                            <div class="api-info">
+                                <div class="api-name">No API keys configured</div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                apiStatus.innerHTML = statusHTML;
+                 alert(apiStatus.innerText);
+                //showNotification(apiStatus.innerHTML, 'info');
+
+
+            } catch (error) {
+                console.error('Error loading API status:', error);
+                apiStatus.innerHTML = `
+                    <div class="api-status-item">
+                        <div class="status-indicator offline"></div>
+                        <div class="api-info">
+                            <div class="api-name">Error loading status</div>
+                            <div class="api-usage">${error.message}</div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Chat History
+        async function loadChatHistory() {
+            try {
+                const response = await fetch('/api/chat-history');
+                if (!response.ok) {
+                    throw new Error(`Chat history load failed with status ${response.status}`);
+                }
+                const data = await response.json();
+                
+                if (data.history && data.history.length > 0) {
+                    displayChatHistory(data.history.slice(-10)); // Show last 10 conversations
+                } else {
+                    historyList.innerHTML = '<div class="text-center text-gray">No chat history yet</div>';
+                }
+            } catch (error) {
+                console.error('Error loading chat history:', error);
+                historyList.innerHTML = '<div class="text-center text-gray">Error loading history</div>';
+            }
+        }
+
+        function displayChatHistory(history) {
+            historyList.innerHTML = '';
+            
+            history.reverse().forEach(chat => {
+                const historyDiv = document.createElement('div');
+                historyDiv.className = 'history-item';
+                historyDiv.onclick = () => loadHistoryItem(chat);
+                
+                const preview = chat.user_message.substring(0, 50) + (chat.user_message.length > 50 ? '...' : '');
+                const time = new Date(chat.timestamp).toLocaleString();
+                
+                historyDiv.innerHTML = `
+                    <div class="history-preview">${preview}</div>
+                    <div class="history-time">${time}</div>
+                `;
+                
+                historyList.appendChild(historyDiv);
+            });
+        }
+
+        function loadHistoryItem(chat) {
+            // Clear current messages
+            messagesArea.innerHTML = '';
+            
+            // Add historical messages
+            addMessage('user', chat.user_message, chat.uploaded_files || []);
+            addMessage('agent', chat.agent_response);
+            
+            // Select appropriate agent
+            selectAgent(chat.agent_type || 'manus');
+            
+            // Update uploaded files display if needed
+            if (chat.uploaded_files && chat.uploaded_files.length > 0) {
+                uploadedFiles = [...chat.uploaded_files];
+                displayUploadedFiles();
+            }
+        }
+
+        // Message Functions
+        function addMessage(sender, text, files = []) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            let filesHTML = '';
+            if (files && files.length > 0) {
+                filesHTML = '<div class="message-files">';
+                files.forEach(file => {
+                    filesHTML += `<span class="message-file-tag"><i class="fas fa-paperclip"></i> ${file.original_name || file.name || 'File'}</span>`;
+                });
+                filesHTML += '</div>';
+            }
+            
+            messageDiv.innerHTML = `
+                <div class="message-content">${text}</div>
+                ${filesHTML}
+                <div class="message-time">${time}</div>
+            `;
+            
+            messagesArea.appendChild(messageDiv);
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            let existing = document.getElementById('typingIndicator');
+            if (existing) return; // already shown
+
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'typing-indicator';
+            typingDiv.id = 'typingIndicator';
+            typingDiv.style.cssText = `
+                position: absolute;
+                bottom: 80px;
+                left: 25px;
+                max-width: 70%;
+                z-index: 10;
+            `;
+            typingDiv.innerHTML = `
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <span style="margin-left: 10px; color: var(--gray);">AI is thinking...</span>
+            `;
+            const container = document.querySelector('.chat-container');
+            container.appendChild(typingDiv);
+        }
+
+        function hideTypingIndicator() {
+            const typingIndicator = document.getElementById('typingIndicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+        }
+
+        // Send Message
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message || isProcessing) return;
+
+            // Generate task ID
+            currentTaskId = 'task_';
+            
+            isProcessing = true;
+            updateUIForProcessing(true);
+            
+            // Add user message
+            addMessage('user', message, uploadedFiles);
+            
+            // Clear input
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            
+            // Show typing indicator
+            showTypingIndicator();
+
+            try {
+                const endpoint = selectedAgent === 'manus' ? '/api/chat-stream' : '/api/flow-stream';
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        message, 
+                        task_id: currentTaskId,
+                        uploaded_files: uploadedFiles 
+                    }),
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let agentMessage = '';
+
+                // Hide typing indicator and create agent message div
+                hideTypingIndicator();
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message agent-message';
+                messagesArea.appendChild(messageDiv);
+                
+                const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                messageDiv.innerHTML = `<div class="message-content"></div><div class="message-time">${time}</div>`;
+                let contentDiv = messageDiv.querySelector('.message-content');
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    buffer += chunk;
+                    
+                    // Process buffer line by line
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+                    
+                    for (const line of lines) {
+                        if (line.includes('0303030')) {
+                            showNotification("✋AI is Succses Fully!", "info");
+
+                            playPatternSound();
+                            continue;
+                        }
+
+                        if (line.includes("Activating tool: 'ask_human'")) {
+                            // Enable message input immediately
+                            isProcessing = false;
+                            updateUIForProcessing(false);
+
+                            // Show a special notification
+                            showNotification("✋ AI is waiting for your input", "info");
+                            playPatternSound();
+                            continue;
+                        }
+
+                        if (line.includes('Anonymized telemetry enabled. See https://docs.browser-use.com/development/telemetry for more information.') || 
+                            line.includes('Initialized advanced API key manager with') ||
+                            line.includes('=== Initial API Key Status ===') ||
+                            line.includes('Available=True, Usage=')||
+                           line.includes('WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead')) {
+                            continue;
+                        }
+                        if (line.includes('Running on all addresses (0.0.0.0)') || 
+                            line.includes(' Running on http://127.0.0.1:3000') ||
+                            line.includes('* Running on http://172.31.111.2:3000') ||
+                            line.includes('Press CTRL+C to quit')||
+                           line.includes('Registered API key')) {
+                            continue;
+                        }
+                        if (line.includes('Loaded API key usage data from api_key_usage.json') || 
+                            line.includes('API keys with manager')) {
+                            continue;
+                        }
+                        if (line.includes('HTTP Request:') || 
+                            line.includes('HTTP/1.1') ||
+                            line.includes('Recorded successful request') ||
+                            line.includes('Successful request with key')||
+                           line.includes('Retrying request')) {
+                            continue;
+                        }
+                        if (line.includes('Disconnected from all MCP servers')) {
+                            playPatternSound();
+                            continue;
+                        }
+                        if (line.includes('Disconnected from all MCP servers') || 
+                            line.includes('Task completed successfully with key') ||
+                            line.includes('Unexpected error with key') ||
+                            line.includes('unknown_error')||
+                           line.includes('Attempting to rotate API key')) {
+                            continue;
+                        }
+                        
+
+                        if (line.includes('Randomly selected API key') || 
+                            line.includes('Rotating to API key')) {
+                            continue;
+                        }
+
+                        
+                        if (line.includes("✨ Manus's thoughts:")) {
+                            const cleanLine = line.trim();
+
+                            // Close current message box
+                            if (contentDiv && contentDiv.parentElement) {
+                                contentDiv.parentElement.querySelector('.message-time').innerText = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            }
+
+                            // Add separate thoughts message
+                            addMessage('agent', cleanLine);
+
+                            // Start a new agent message box
+                            agentMessage = '';
+                            const newMessageDiv = document.createElement('div');
+                            newMessageDiv.className = 'message agent-message';
+                            messagesArea.appendChild(newMessageDiv);
+
+                            const newTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            newMessageDiv.innerHTML = `<div class="message-content"></div><div class="message-time">${newTime}</div>`;
+                            contentDiv = newMessageDiv.querySelector('.message-content');
+
+                            messagesArea.scrollTop = messagesArea.scrollHeight;
+                            continue;
+                        }
+                        
+                        agentMessage += line + '\n';
+                        if (contentDiv) {
+                            contentDiv.innerHTML = formatMessage(agentMessage);
+                            messagesArea.scrollTop = messagesArea.scrollHeight;
+                        }
+                    }
+                }
+
+                // Process any remaining content
+                if (buffer && !buffer.includes('0303030') && contentDiv) {
+                    agentMessage += buffer;
+                    contentDiv.innerHTML = formatMessage(agentMessage);
+                }
+
+                // Clear uploaded files after successful processing
+                uploadedFiles = [];
+                displayUploadedFiles();
+
+            } catch (error) {
+                hideTypingIndicator();
+                addMessage('agent', `❌ Error: ${error.message}`);
+                console.error('Error:', error);
+            } finally {
+                isProcessing = false;
+                currentTaskId = null;
+                updateUIForProcessing(false);
+                loadAPIStatus();
+                loadChatHistory();
+            }
+        }
+
+        // In the sendMessage function, modify the message processing part:
+
+        // Only add to message if it's not empty after trimming
+        // In the sendMessage function, modify the message processing part:
+
+        // Only add to message if it's not empty after trimming
+        
+        // Updated formatMessage function with advanced handling:
+
+        function formatMessage(text) {
+            // Basic formatting for better display
+            return text
+                .replace(/\n/g, '<br>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`(.*?)`/g, '<code style="background: rgba(0,0,0,0.1); padding: 2px 4px; border-radius: 3px;">$1</code>')
+              .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                // Italic text (*text*)
+                .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+                // Code blocks (```code```)
+                .replace(/```([^`]+)```/g, '<pre><code>$1</code></pre>')
+                // Inline code (`code`)
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                // Links ([text](url))
+                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+                // Headers (### Header)
+                .replace(/^###\s(.+)$/gm, '<h3>$1</h3>')
+                // Lists (- item)
+                .replace(/^-\s(.+)$/gm, '<li>$1</li>')
+                .replace(/\n/g, '<br>')
+                // Replace multiple <br> with single one
+                .replace(/(<br>){2,}/g, '<br><br>');
+        }
+
+        
+        
+
+        
+        // Stop Task
+        async function stopTask() {
+            if (!currentTaskId) return;
+
+            try {
+                const response = await fetch('/api/stop-task', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ task_id: currentTaskId }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Stop task failed with status ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (result.success) {
+                    showNotification('🛑 Task stopped successfully', 'info');
+                    isProcessing = false;
+                    currentTaskId = null;
+                    updateUIForProcessing(false);
+                    hideTypingIndicator();
+                } else {
+                    showNotification('⚠️ Could not stop task', 'warning');
+                }
+            } catch (error) {
+                showNotification('❌ Error stopping task: ' + error.message, 'error');
+                console.error('Error stopping task:', error);
+            }
+        }
+
+        function updateUIForProcessing(processing) {
+            sendButton.disabled = processing;
+            messageInput.disabled = processing;
+            
+            if (processing) {
+                sendButton.innerHTML = '<div class="spinner"></div>';
+                stopButton.classList.remove('hidden');
+            } else {
+                sendButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                stopButton.classList.add('hidden');
+            }
+        }
+
+        // Utility Functions
+        function showNotification(message, type = 'info') {
+            // Simple notification system
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                background: ${type === 'success' ? 'var(--success)' : 
+                            type === 'error' ? 'var(--danger)' : 
+                            type === 'warning' ? 'var(--warning)' : 'var(--info)'};
+                color: white;
+                border-radius: 10px;
+                box-shadow: var(--shadow);
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+            `;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        function clearChat() {
+            messagesArea.innerHTML = `
+                <div class="message agent-message">
+                    <div class="message-content">
+                        🚀 Chat cleared! How can I help you today?
+                    </div>
+                    <div class="message-time">Just now</div>
+                </div>
+            `;
+            uploadedFiles = [];
+            displayUploadedFiles();
+        }
+
+        function toggleHistory() {
+            chatHistory.style.display = chatHistory.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+
+
+<!-- ======================================================================= -->
+<!-- =================== ADDED BY OpenManus AI ===================== -->
+<!-- ======================================================================= -->
+
+<!-- Buttons added inside the header for new functionalities -->
+<script>
+    const headerActions = document.querySelector('.header-actions');
+    if(headerActions){
+        const newButtons = `
+            <button id="darkModeToggle" class="agent-button" title="Toggle Dark Mode">
+                <i class="fas fa-moon"></i>
+            </button>
+            <button id="apiStatusBtn" class="agent-button" title="Check API Status">
+                <i class="fas fa-key"></i> <span>API Status</span>
+            </button>
+        `;
+        headerActions.insertAdjacentHTML('beforeend', newButtons);
+    }
+</script>
+
+<style>
+    /* Dark Mode & Full Page Chat Styles */
+    body.dark-mode {
+        background: #0f172a !important;
+        color: #f8fafc !important;
+    }
+    .dark-mode .animated-bg {
+        background: #0f172a !important;
+    }
+    .dark-mode .logo-text {
+        background: linear-gradient(135deg, #ffffff 0%, rgba(255,255,255,0.8) 100%) !important;
+        -webkit-background-clip: text !important;
+        background-clip: text;
+    }
+    .dark-mode .glass-card {
+        background: rgba(30, 41, 59, 0.5) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(51, 65, 85, 0.5) !important;
+    }
+    .dark-mode .section-title, .dark-mode .upload-text, .dark-mode .file-name, .dark-mode .api-name, .dark-mode .chat-title, .dark-mode .agent-button, .dark-mode .history-preview {
+        color: #f8fafc !important;
+    }
+    .dark-mode .upload-subtext, .dark-mode .file-size, .dark-mode .api-usage {
+        color: rgba(248, 250, 252, 0.7) !important;
+    }
+    .dark-mode .agent-message {
+        background: #1e293b !important;
+        color: #f8fafc !important;
+    }
+    .dark-mode .message-input {
+        background: #1e293b !important;
+        color: #f8fafc !important;
+        border-color: #334155 !important;
+    }
+    .dark-mode .message-input:focus {
+        background: #0f172a !important;
+        border-color: var(--primary) !important;
+    }
+    .dark-mode .history-item {
+        background: rgba(30, 41, 59, 0.5) !important;
+    }
+    .dark-mode .history-item:hover {
+        background: rgba(30, 41, 59, 0.8) !important;
+    }
+    .dark-mode .agent-button.active {
+        background: var(--gradient-primary) !important;
+        border-color: var(--primary) !important;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3) !important;
+    }
+
+    /* Full Page Chat Layout */
+    .main-layout {
+        grid-template-columns: 1fr !important;
+        min-height: calc(100vh - 120px) !important;
+        gap: 0 !important;
+    }
+    .sidebar, .chat-history {
+        display: none !important;
+    }
+    .chat-container {
+        border-radius: 20px;
+        box-shadow: var(--shadow-lg);
+        margin: 0 20px;
+    }
+    .messages-area {
+        max-height: calc(100vh - 280px) !important;
+    }
+    .header {
+        margin-bottom: 10px !important;
+    }
+    #apiStatusBtn span {
+        display: inline;
+    }
+    @media (max-width: 768px) {
+        #apiStatusBtn span {
+            display: none; /* Hide text on smaller screens */
+        }
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const apiStatusBtn = document.getElementById('apiStatusBtn');
+    const body = document.body;
+
+    if(darkModeToggle) {
+        const icon = darkModeToggle.querySelector('i');
+        darkModeToggle.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            if (body.classList.contains('dark-mode')) {
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            } else {
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+            }
+        });
+    }
+
+    if(apiStatusBtn) {
+        apiStatusBtn.addEventListener('click', () => {
+            const apiStatusSection = document.querySelector('.api-status');
+            if (apiStatusSection) {
+                apiStatusSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                apiStatusSection.style.border = '2px solid var(--primary)';
+                apiStatusSection.style.padding = '10px';
+                apiStatusSection.style.borderRadius = '15px';
+                setTimeout(() => {
+                    apiStatusSection.style.border = 'none';
+                    apiStatusSection.style.padding = '0';
+                }, 3000);
+            }
+        });
+    }
+});
+</script>
+
+</body>
+</html>

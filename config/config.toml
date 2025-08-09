@@ -1,0 +1,119 @@
+# Global LLM configuration with multi-API key support
+[llm]
+model = "gemini-2.5-pro"       # The LLM model to use
+base_url = "https://generativelanguage.googleapis.com/v1beta/openai/" # API endpoint URL
+api_key = "AIzaSyAwd6PcBM-07xBbbuBqBPc3svJsUMvyc1E"
+max_tokens = 60000                          # Maximum number of tokens in the response
+temperature = 0.0                         # Controls randomness
+
+# Multi-API key configuration with rate limiting and automatic rotation
+# When one key hits rate limit, system automatically tries the next available key
+[[llm.api_keys]]
+api_key = "AIzaSyAwd6PcBM-07xBbbuBqBPc3svJsUMvyc1E"           # Primary API key
+name = "1 Key"                       # Optional name for identification
+max_requests_per_minute = 5               # Rate limit: requests per minute
+max_requests_per_hour = 100               # Rate limit: requests per hour
+max_requests_per_day = 100               # Rate limit: requests per day
+priority = 1                               # Priority (lower = higher priority)
+enabled = true                              # Whether this key is active
+
+[[llm.api_keys]]
+api_key = "AIzaSyDwDj4i9tptBolcKGHMlqxMOi_CjisQdJE"         # Secondary API key
+name = "2 Key"                     # Optional name for identification
+max_requests_per_minute = 5               # Different rate limits per key
+max_requests_per_hour = 100
+max_requests_per_day = 100
+priority = 2                               # Lower priority than primary
+enabled = true
+
+[[llm.api_keys]]
+api_key = "AIzaSyClSfseWKkublCjdZBIq-aYqPoB3jEWj28"         # Secondary API key
+name = "3 Key"                     # Optional name for identification
+max_requests_per_minute = 5               # Different rate limits per key
+max_requests_per_hour = 100
+max_requests_per_day = 100
+priority = 3                               # Lower priority than primary
+enabled = true
+
+[[llm.api_keys]]
+api_key = "AIzaSyD_ElDcTSosqzd4Dy9L-4ygL3fP2zsWtq0"         # Secondary API key
+name = "4 Key"                     # Optional name for identification
+max_requests_per_minute = 5               # Different rate limits per key
+max_requests_per_hour = 100
+max_requests_per_day = 100
+priority = 4                             # Lower priority than primary
+enabled = true
+
+[[llm.api_keys]]
+api_key = "AIzaSyAf__tW7KcUD1-uh9RzGg6Y5eS6e3_PNB0"         # Secondary API key
+name = "5 Key"                     # Optional name for identification
+max_requests_per_minute = 5               # Different rate limits per key
+max_requests_per_hour = 100
+max_requests_per_day = 100
+priority = 5                               # Lower priority than primary
+enabled = true
+
+# [llm.vision] #OLLAMA VISION:
+# api_type = 'ollama'
+# model = "llama3.2-vision"
+# base_url = "http://localhost:11434/v1"
+# api_key = "ollama"
+# max_tokens = 4096
+# temperature = 0.0
+
+# Optional configuration for specific browser configuration
+# [browser]
+# Whether to run browser in headless mode (default: false)
+#headless = false
+# Disable browser security features (default: true)
+#disable_security = true
+# Extra arguments to pass to the browser
+#extra_chromium_args = []
+# Path to a Chrome instance to use to connect to your normal browser
+# e.g. '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+#chrome_instance_path = ""
+# Connect to a browser instance via WebSocket
+#wss_url = ""
+# Connect to a browser instance via CDP
+#cdp_url = ""
+
+# Optional configuration, Proxy settings for the browser
+# [browser.proxy]
+# server = "http://proxy-server:port"
+# username = "proxy-username"
+# password = "proxy-password"
+
+# Optional configuration, Search settings.
+ [search]
+# Search engine for agent to use. Default is "Google", can be set to "Baidu" or "DuckDuckGo" or "Bing".
+engine = "Google"
+# Fallback engine order. Default is ["DuckDuckGo", "Baidu", "Bing"] - will try in this order after primary engine fails.
+fallback_engines = ["DuckDuckGo", "Baidu", "Bing"]
+# Seconds to wait before retrying all engines again when they all fail due to rate limits. Default is 60.
+retry_delay = 60
+# Maximum number of times to retry all engines when all fail. Default is 3.
+max_retries = 5
+# Language code for search results. Options: "en" (English), "zh" (Chinese), etc.
+lang = "en"
+# Country code for search results. Options: "us" (United States), "cn" (China), etc.
+country = "us"
+
+
+#Sandbox configuration
+# [sandbox]
+use_sandbox = true
+image = "python:3.12-slim"
+work_dir = "/workspace"
+memory_limit = "512m"  # 512m
+cpu_limit = 1.0
+timeout = 300
+network_enabled = true
+
+# MCP (Model Context Protocol) configuration
+[mcp]
+server_reference = "app.mcp.server" # default server module reference
+
+# Optional Runflow configuration
+# Your can add additional agents into run-flow workflow to solve different-type tasks.
+[runflow]
+use_data_analysis_agent = true     # The Data Analysi Agent to solve various data analysis tasks
