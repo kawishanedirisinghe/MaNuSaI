@@ -42,9 +42,5 @@ def chat_stream():
         return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
-        return jsonify({"error": "දෝෂයක් සිදුවිය"}), 500
-
-if __name__ == '__main__':
     sinhala_logger.info("Flask යෙදවුම ආරම්භ වේ")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)

@@ -64,6 +64,9 @@ class DockerSandbox:
                 cpu_quota=int(100000 * self.config.cpu_limit),
                 network_mode="none" if not self.config.network_enabled else "bridge",
                 binds=self._prepare_volume_bindings(),
+                cap_drop=["ALL"],
+                security_opt=["no-new-privileges"],
+                read_only=True,
             )
 
             # Generate unique container name with sandbox_ prefix
@@ -76,6 +79,7 @@ class DockerSandbox:
                 command="tail -f /dev/null",
                 hostname="sandbox",
                 working_dir=self.config.work_dir,
+                user="1000:1000",
                 host_config=host_config,
                 name=container_name,
                 tty=True,

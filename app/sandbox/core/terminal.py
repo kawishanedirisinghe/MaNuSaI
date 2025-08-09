@@ -54,8 +54,8 @@ class DockerSession:
             tty=True,
             stdout=True,
             stderr=True,
-            privileged=True,
-            user="root",
+            privileged=False,
+            user="sandbox",
             environment={**env_vars, "TERM": "dumb", "PS1": "$ ", "PROMPT_COMMAND": ""},
         )
         self.exec_id = exec_data["Id"]
