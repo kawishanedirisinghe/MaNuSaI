@@ -1,0 +1,11 @@
+Loaded API key usage data from api_key_usage.json
+Initialized advanced API key manager with 5 keys
+=== Initial API Key Status ===
+Key 1 Key: Available=True, Usage=15/100 today
+Key 2 Key: Available=True, Usage=6/100 today
+Key 3 Key: Available=True, Usage=13/100 today
+Key 4 Key: Available=True, Usage=7/100 today
+Key 5 Key: Available=True, Usage=0/100 today
+Starting ASGI server with WebSocket support at 0.0.0.0:3000
+Loaded API key usage data from api_key_usage.json
+Initialized advanced API key manager with 5 keys

@@ -358,7 +358,7 @@ api_key_manager = AdvancedAPIKeyManager(config['llm']['api_keys'])
 # 初始化工作目录
 os.makedirs(app.config['WORKSPACE'], exist_ok=True)
 LOG_FILE = 'logs/root_stream.log'
-FILE_CHECK_INTERVAL = 2  # 文件检查间隔（秒）
+FILE_CHECK_INTERVAL = 0.05  # File check interval (seconds) - lowered for snappier streaming
 PROCESS_TIMEOUT = 6099999990    # 最长处理时间（秒）
 
 # Utility: load/save chat by id
@@ -1160,4 +1160,15 @@ if __name__ == '__main__':
         logger.info(f"Key {status['name']}: Available={status['available']}, "
                     f"Usage={status['usage']['requests_this_day']}/{status['limits']['max_per_day']} today")
 
-    app.run(host='0.0.0.0', port=3000,  debug=False)
+    # Prefer ASGI server (Uvicorn) for WebSocket support; fallback to Flask dev server if disabled
+    use_asgi = os.getenv('USE_ASGI', '1') != '0'
+    if use_asgi:
+        try:
+            import uvicorn
+            logger.info("Starting ASGI server with WebSocket support at 0.0.0.0:3000")
+            uvicorn.run("server:app", host="0.0.0.0", port=3000, reload=False)
+        except Exception as e:
+            logger.error(f"Failed to start ASGI server, falling back to Flask: {e}")
+            app.run(host='0.0.0.0', port=3000, debug=False)
+    else:
+        app.run(host='0.0.0.0', port=3000, debug=False)
