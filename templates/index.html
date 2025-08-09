@@ -189,6 +189,9 @@
                 <button class="btn btn-secondary" onclick="clearChat()">
                     <i class="fas fa-trash"></i> Clear Chat
                 </button>
+                <button class="btn btn-secondary" onclick="execTerminal()">
+                    <i class="fas fa-terminal"></i> Terminal
+                </button>
                 <button class="btn btn-primary" onclick="toggleHistory()">
                     <i class="fas fa-history"></i> History
                 </button>
@@ -291,6 +294,13 @@
                 <div class="input-area">
              
                     <div class="input-container">
+                                <select id="moodSelector" class="agent-button" style="padding:10px 14px;border-radius:12px;border:1px solid var(--glass-border);background:transparent;color:var(--white);">
+                                    <option value="default">Mood: Default</option>
+                                    <option value="friendly">Mood: Friendly</option>
+                                    <option value="strict">Mood: Strict</option>
+                                    <option value="concise">Mood: Concise</option>
+                                    <option value="elaborate">Mood: Elaborate</option>
+                                </select>
                                <div class="agent-selector">
                         <button id="manusButton" class="agent-button active">
                             <i class="fas fa-brain"></i> Manus
@@ -341,7 +351,8 @@
         const messagesArea = document.getElementById('messagesArea');
         const apiStatus = document.getElementById('apiStatus');
         const manusButton = document.getElementById('manusButton');
-        const flowButton = document.getElementById('flowButton');
+const flowButton = document.getElementById('flowButton');
+let selectedMood = 'default';
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
         const uploadedFilesContainer = document.getElementById('uploadedFiles');
@@ -415,6 +426,14 @@
                     handleFiles(e.dataTransfer.files);
                 }
             });
+            const moodSelector = document.getElementById('moodSelector');
+            if (moodSelector) {
+                moodSelector.addEventListener('change', (e) => {
+                    selectedMood = e.target.value;
+                    showNotification(`🎭 Agent mood set to ${selectedMood}`, 'info');
+                });
+            }
+
             fileInput.addEventListener('change', (e) => {
                 if (e.target.files.length > 0) {
                     handleFiles(e.target.files);
@@ -545,9 +564,7 @@
                 }
 
                 apiStatus.innerHTML = statusHTML;
-                 alert(apiStatus.innerText);
-                //showNotification(apiStatus.innerHTML, 'info');
-
+                
 
             } catch (error) {
                 console.error('Error loading API status:', error);
@@ -684,7 +701,7 @@
             if (!message || isProcessing) return;
 
             // Generate task ID
-            currentTaskId = 'task_';
+            currentTaskId = 'task_' + Math.random().toString(36).slice(2);
             
             isProcessing = true;
             updateUIForProcessing(true);
@@ -709,7 +726,8 @@
                     body: JSON.stringify({ 
                         message, 
                         task_id: currentTaskId,
-                        uploaded_files: uploadedFiles 
+                        uploaded_files: uploadedFiles,
+                        mood: selectedMood,
                     }),
                 });
 
@@ -933,6 +951,12 @@
         function updateUIForProcessing(processing) {
             sendButton.disabled = processing;
             messageInput.disabled = processing;
+            // Allow typing while AI is waiting for human input
+            if (!processing) {
+                messageInput.placeholder = "Type your message here...";
+            } else {
+                messageInput.placeholder = "Processing... You can still type if AI asks for input";
+            }
             
             if (processing) {
                 sendButton.innerHTML = '<div class="spinner"></div>';
@@ -982,6 +1006,22 @@
             `;
             uploadedFiles = [];
             displayUploadedFiles();
+        }
+
+        async function execTerminal() {
+            const cmd = prompt('Enter sandbox command to run');
+            if (!cmd) return;
+            try {
+                const res = await fetch('/api/sandbox/exec', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({command: cmd, timeout: 60})});
+                const data = await res.json();
+                if (data.error) {
+                    showNotification('❌ ' + data.error, 'error');
+                } else {
+                    addMessage('agent', `<pre><code>${(data.output||'').replace(/</g,'&lt;')}</code></pre>`);
+                }
+            } catch(e){
+                showNotification('❌ ' + e.message, 'error');
+            }
         }
 
         function toggleHistory() {

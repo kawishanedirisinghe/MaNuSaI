@@ -541,8 +541,32 @@ class LLM:
 
                 # Check if token limits are exceeded
                 if not self.check_token_limit(input_tokens):
-                    error_message = self.get_limit_error_message(input_tokens)
-                    raise TokenLimitExceeded(error_message)
+                    # Try server-side trimming strategy before failing
+                    try:
+                        from app.tool.token_trimmer import TokenTrimmer
+                        trimmer = TokenTrimmer()
+                        # Flatten messages to single text for trimming
+                        flat = []
+                        for m in messages:
+                            if isinstance(m.get("content"), list):
+                                for it in m["content"]:
+                                    if isinstance(it, str):
+                                        flat.append(it)
+                                    elif isinstance(it, dict) and "text" in it:
+                                        flat.append(it["text"])
+                            elif isinstance(m.get("content"), str):
+                                flat.append(m["content"])
+                        joined = "\n\n".join(flat)
+                        trimmed = await trimmer.execute(joined, max_chars=12000, strip_code=False)
+                        # Replace last user message with trimmed text context
+                        if messages:
+                            messages[-1]["content"] = trimmed["observation"][:8000]
+                        input_tokens = self.count_message_tokens(messages)
+                    except Exception:
+                        pass
+                    if not self.check_token_limit(input_tokens):
+                        error_message = self.get_limit_error_message(input_tokens)
+                        raise TokenLimitExceeded(error_message)
 
                 params = {
                     "model": self.model,
